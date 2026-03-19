@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/github/license/chensoul/wakapi-skill)](./LICENSE)
 [![Publish to ClawHub](https://github.com/chensoul/wakapi-skill/actions/workflows/clawhub-publish.yml/badge.svg)](https://github.com/chensoul/wakapi-skill/actions/workflows/clawhub-publish.yml)
 
-Portable **agent skill** for **Wakapi**: read-only coding stats via a small Python CLI (`WAKAPI_URL`, `WAKAPI_API_KEY`).
+Wakapi coding stats (summaries, projects, today status, totals) via a small Python CLI.
 
 ## Documentation
 
