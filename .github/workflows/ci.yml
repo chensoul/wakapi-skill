@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Python syntax check
+        run: python3 -m py_compile scripts/wakatime_query.py
+
+      - name: Run unit tests
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+
+  package-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build publish dir via .clawhubignore
+        run: |
+          set -euo pipefail
+          OUT=/tmp/skill
+          rm -rf "$OUT"
+          mkdir -p "$OUT"
+          rsync -a --delete --exclude-from=.clawhubignore ./ "$OUT/"
+
+          echo "Publish files:"; find "$OUT" -type f -maxdepth 4 -print
+
+          test ! -f "$OUT/README.md"
+          test ! -d "$OUT/tests"
+          test ! -d "$OUT/.github"
+
+          test -f "$OUT/SKILL.md"
+          test -d "$OUT/scripts"
+          test -f "$OUT/scripts/wakatime_query.py"

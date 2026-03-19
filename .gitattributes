@@ -1,0 +1,2 @@
+# Rsync/GitHub Actions read --exclude-from=.clawhubignore; CRLF breaks patterns on Unix.
+.clawhubignore text eol=lf

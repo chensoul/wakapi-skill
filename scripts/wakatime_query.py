@@ -1,21 +1,18 @@
 #!/usr/bin/env python3
 """
-WakaTime / Wakapi-compatible API helper (stdlib only).
+WakaTime / Wakapi stats CLI (stdlib only).
 
-Requires environment variables:
-  WAKAPI_BASE_URL  — e.g. https://wakatime.com (no trailing slash, no /api/v1)
-  WAKAPI_API_KEY   — secret API key
+Environment: only WAKAPI_API_KEY (required) and WAKAPI_BASE_URL (optional).
+Other options: -d/--debug may appear anywhere. Optional per-command --timeout on some subcommands.
 
 Examples:
-  python3 scripts/wakatime_query.py projects
-  python3 scripts/wakatime_query.py status-bar-today
-  python3 scripts/wakatime_query.py all-time-since-today
+  python3 scripts/wakatime_query.py projects -d
+  python3 scripts/wakatime_query.py status-bar
+  python3 scripts/wakatime_query.py all-time-since
   python3 scripts/wakatime_query.py stats last_7_days
   python3 scripts/wakatime_query.py summaries --start 2025-03-01 --end 2025-03-07
   python3 scripts/wakatime_query.py summaries --range "Last 7 Days" \\
     --project myapp --branches main,develop --timezone Asia/Shanghai
-  python3 scripts/wakatime_query.py summaries --start 2025-03-01 --end 2025-03-07 \\
-    --query project=myapp --query branches=main
   python3 scripts/wakatime_query.py health
 """
 
@@ -32,29 +29,98 @@ import urllib.request
 from typing import Any
 
 
+_DEFAULT_BASE = "https://wakatime.com"
+
+# Set in main() from CLI (only env vars used: WAKAPI_API_KEY, WAKAPI_BASE_URL).
+_RUNTIME: dict[str, Any] = {
+    "debug": False,
+}
+
+
+def _resolve_http_timeout(*, cli_sec: float | None, fallback_sec: float) -> float:
+    """Subcommand --timeout if set, else fallback_sec."""
+    if cli_sec is not None:
+        return cli_sec
+    return fallback_sec
+
+
+def _debug_enabled() -> bool:
+    return bool(_RUNTIME.get("debug"))
+
+
+def _strip_debug_argv(argv: list[str]) -> tuple[bool, list[str]]:
+    """Remove -d / --debug from anywhere in argv; return (debug_enabled, rest)."""
+    debug = False
+    rest: list[str] = []
+    for a in argv:
+        if a in ("-d", "--debug"):
+            debug = True
+        else:
+            rest.append(a)
+    return debug, rest
+
+
+def _log_request(method: str, url: str) -> None:
+    if _debug_enabled():
+        print(f"wakatime_query: {method} {url}", file=sys.stderr)
+
+
 def _normalize_base(url: str) -> str:
     u = url.strip().rstrip("/")
     if not u:
-        raise SystemExit("WAKAPI_BASE_URL is empty")
+        return _DEFAULT_BASE
     return u
 
 
-def _auth_header(api_key: str) -> str:
+def _host_from_base(base: str) -> str:
+    return (urllib.parse.urlparse(base).hostname or "").lower()
+
+
+def _compat_api_prefix(base: str) -> str:
+    """Most WakaTime-shaped endpoints: WakaTime cloud uses /api/v1; Wakapi uses compat prefix."""
+    if _host_from_base(base) == "wakatime.com":
+        return "/api/v1"
+    return "/api/compat/wakatime/v1"
+
+
+def _api_root() -> str:
+    """API root for health, projects, stats, summaries, etc. (not status-bar)."""
+    base = _normalize_base(os.environ.get("WAKAPI_BASE_URL", ""))
+    return base + _compat_api_prefix(base)
+
+
+def _statusbar_today_url() -> str:
+    """Wakapi serves today statusbar under /api/v1; use that path on every host."""
+    base = _normalize_base(os.environ.get("WAKAPI_BASE_URL", ""))
+    return f"{base}/api/v1/users/current/statusbar/today"
+
+
+def _auth_basic_value(api_key: str) -> str:
     if not api_key:
         raise SystemExit("WAKAPI_API_KEY is empty")
     b64 = base64.b64encode(api_key.encode("utf-8")).decode("ascii")
     return f"Basic {b64}"
 
 
+def _request_headers() -> dict[str, str]:
+    """WakaTime and Wakapi: Authorization Basic base64(api_key)."""
+    key = os.environ.get("WAKAPI_API_KEY", "")
+    if not key:
+        raise SystemExit("WAKAPI_API_KEY is empty")
+    return {"Authorization": _auth_basic_value(key), "Accept": "application/json"}
+
+
 def _get_json(
     url: str,
     headers: dict[str, str],
     *,
-    timeout: float = 60,
+    timeout: float | None = None,
 ) -> tuple[int, Any]:
+    t = _resolve_http_timeout(cli_sec=timeout, fallback_sec=60)
+    _log_request("GET", url)
     req = urllib.request.Request(url, method="GET", headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=t) as resp:
             body = resp.read().decode("utf-8")
             code = resp.getcode()
             if not body:
@@ -83,10 +149,10 @@ def _get_json(
         raise SystemExit(2) from e
 
 
-def cmd_health(base: str, hdr: dict[str, str], *, timeout: float = 15) -> None:
-    """GET …/projects; healthy iff HTTP status is exactly 200. Minimal stdout JSON only."""
-    path = "/api/v1/users/current/projects"
-    url = f"{base}{path}"
+def cmd_health(api_root: str, hdr: dict[str, str], *, timeout: float) -> None:
+    """Remote probe; healthy only on HTTP 200. Stdout: {"healthy": bool}."""
+    url = f"{api_root}/users/current/projects"
+    _log_request("GET", url)
     req = urllib.request.Request(url, method="GET", headers=hdr)
     code: int | None = None
     try:
@@ -109,25 +175,26 @@ def cmd_health(base: str, hdr: dict[str, str], *, timeout: float = 15) -> None:
     raise SystemExit(0 if healthy else 1)
 
 
-def cmd_projects(base: str, hdr: dict[str, str]) -> None:
-    url = f"{base}/api/v1/users/current/projects"
-    _code, data = _get_json(url, hdr)
+def cmd_projects(api_root: str, hdr: dict[str, str], *, http_timeout: float | None) -> None:
+    url = f"{api_root}/users/current/projects"
+    _code, data = _get_json(url, hdr, timeout=http_timeout)
     print(json.dumps(data, indent=2))
 
 
-def cmd_status_bar_today(base: str, hdr: dict[str, str]) -> None:
-    url = f"{base}/api/v1/users/current/status_bar/today"
-    _code, data = _get_json(url, hdr)
+def cmd_status_bar_today(hdr: dict[str, str], *, http_timeout: float | None) -> None:
+    # Always …/api/v1/…/statusbar/today (WakaTime + Wakapi); other commands use _api_root() host rules.
+    url = _statusbar_today_url()
+    _code, data = _get_json(url, hdr, timeout=http_timeout)
     print(json.dumps(data, indent=2))
 
 
-def cmd_all_time_since_today(base: str, hdr: dict[str, str]) -> None:
-    url = f"{base}/api/v1/users/current/all_time_since_today"
-    _code, data = _get_json(url, hdr)
+def cmd_all_time_since_today(api_root: str, hdr: dict[str, str], *, http_timeout: float | None) -> None:
+    url = f"{api_root}/users/current/all_time_since_today"
+    _code, data = _get_json(url, hdr, timeout=http_timeout)
     print(json.dumps(data, indent=2))
 
 
-def cmd_stats(base: str, hdr: dict[str, str], args: argparse.Namespace) -> None:
+def cmd_stats(api_root: str, hdr: dict[str, str], args: argparse.Namespace) -> None:
     range_seg = urllib.parse.quote(args.stats_range, safe="")
     q: list[tuple[str, str]] = []
     if args.timeout is not None:
@@ -135,25 +202,15 @@ def cmd_stats(base: str, hdr: dict[str, str], args: argparse.Namespace) -> None:
     if args.writes_only is not None:
         q.append(("writes_only", args.writes_only))
     qs = urllib.parse.urlencode(q) if q else ""
-    url = f"{base}/api/v1/users/current/stats/{range_seg}"
+    url = f"{api_root}/users/current/stats/{range_seg}"
     if qs:
         url = f"{url}?{qs}"
     _code, data = _get_json(url, hdr)
     print(json.dumps(data, indent=2))
 
 
-def cmd_summaries(base: str, hdr: dict[str, str], args: argparse.Namespace) -> None:
-    # Insertion-ordered map; explicit CLI flags override earlier --query keys.
+def cmd_summaries(api_root: str, hdr: dict[str, str], args: argparse.Namespace) -> None:
     params: dict[str, str] = {}
-
-    for raw in getattr(args, "extra_query", None) or []:
-        if "=" not in raw:
-            raise SystemExit(f"summaries: --query must be KEY=VALUE, got {raw!r}")
-        key, _, value = raw.partition("=")
-        key = key.strip()
-        if not key:
-            raise SystemExit(f"summaries: empty key in --query {raw!r}")
-        params[key] = value
 
     if args.start and args.end:
         params["start"] = args.start
@@ -175,51 +232,71 @@ def cmd_summaries(base: str, hdr: dict[str, str], args: argparse.Namespace) -> N
         params["writes_only"] = args.writes_only
 
     qs = urllib.parse.urlencode(params)
-    url = f"{base}/api/v1/users/current/summaries"
+    url = f"{api_root}/users/current/summaries"
     if qs:
         url = f"{url}?{qs}"
     _code, data = _get_json(url, hdr)
     print(json.dumps(data, indent=2))
 
 
+def _add_http_timeout_arg(p: argparse.ArgumentParser, *, fallback: float) -> None:
+    p.add_argument(
+        "--timeout",
+        type=float,
+        default=None,
+        metavar="SEC",
+        dest="http_timeout",
+        help=f"HTTP socket timeout seconds (default: {fallback:g})",
+    )
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Query WakaTime-compatible /users/current APIs")
+    dbg, argv_cmd = _strip_debug_argv(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description="WakaTime / Wakapi coding stats. Env: WAKAPI_API_KEY (required), WAKAPI_BASE_URL (optional).",
+        epilog="Debug: use -d or --debug anywhere (before or after the subcommand) to print each request URL to stderr.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_health = sub.add_parser(
         "health",
-        help="GET …/projects; stdout is {\"healthy\": true} iff HTTP 200, else {\"healthy\": false}",
+        help='Connectivity check; prints {"healthy": true|false}',
     )
-    p_health.add_argument(
-        "--connect-timeout",
-        type=float,
-        default=15,
-        metavar="SEC",
-        dest="connect_timeout",
-        help="HTTP timeout in seconds (default: 15)",
-    )
+    _add_http_timeout_arg(p_health, fallback=15)
 
-    sub.add_parser("projects", help="GET /api/v1/users/current/projects")
-    sub.add_parser("status-bar-today", help="GET .../status_bar/today")
-    sub.add_parser("all-time-since-today", help="GET .../all_time_since_today")
+    p_projects = sub.add_parser("projects", help="List projects")
+    _add_http_timeout_arg(p_projects, fallback=60)
 
-    p_stats = sub.add_parser("stats", help="GET .../stats/{range}")
+    p_sbt = sub.add_parser("status-bar", help="Today status bar")
+    _add_http_timeout_arg(p_sbt, fallback=60)
+
+    p_all = sub.add_parser("all-time-since", help="All-time total since today")
+    _add_http_timeout_arg(p_all, fallback=60)
+
+    p_stats = sub.add_parser("stats", help="Stats for a time range")
     p_stats.add_argument(
         "stats_range",
         metavar="range",
         help="e.g. last_7_days, 2025, 2025-03, all_time",
     )
-    p_stats.add_argument("--timeout", type=int, default=None)
+    p_stats.add_argument(
+        "--timeout",
+        type=int,
+        default=None,
+        metavar="N",
+        help="API query: keystroke timeout (seconds); not HTTP socket timeout",
+    )
     p_stats.add_argument(
         "--writes-only",
         choices=("true", "false"),
         default=None,
-        help="Query parameter writes_only",
+        help="writes_only query param",
     )
 
     p_sum = sub.add_parser(
         "summaries",
-        help="GET .../summaries (optional filters: project, branches, timezone, …)",
+        help="Daily summaries for a date range or preset",
     )
     p_sum.add_argument("--start", help="Start date (YYYY-MM-DD); use with --end")
     p_sum.add_argument("--end", help="End date (YYYY-MM-DD); use with --start")
@@ -232,49 +309,38 @@ def main() -> None:
     p_sum.add_argument(
         "--project",
         metavar="NAME",
-        help="WakaTime query project: only time logged to this project",
+        help="Filter by project name",
     )
     p_sum.add_argument(
         "--branches",
         metavar="NAMES",
-        help="WakaTime query branches: comma-separated branch names (e.g. main,develop)",
+        help="Comma-separated branch names",
     )
     p_sum.add_argument(
         "--timezone",
         metavar="TZ",
-        help="WakaTime query timezone: IANA zone for start/end (e.g. America/New_York)",
+        help="IANA timezone for dates",
     )
     p_sum.add_argument(
         "--timeout",
         type=int,
         default=None,
         metavar="N",
-        help="WakaTime query timeout: keystroke timeout (seconds) for joining heartbeats",
+        help="Keystroke timeout (seconds)",
     )
     p_sum.add_argument(
         "--writes-only",
         choices=("true", "false"),
         default=None,
-        help="WakaTime query writes_only",
-    )
-    p_sum.add_argument(
-        "--query",
-        dest="extra_query",
-        action="append",
-        default=None,
-        metavar="KEY=VALUE",
-        help="Extra query parameter (repeatable). --project/--branches/… override same key.",
+        help="writes_only",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv_cmd)
 
-    base = _normalize_base(os.environ.get("WAKAPI_BASE_URL", ""))
-    api_key = os.environ.get("WAKAPI_API_KEY", "")
-    auth = os.environ.get("WAKAPI_BASIC_HEADER", "").strip()
-    if auth:
-        h = {"Authorization": auth, "Accept": "application/json"}
-    else:
-        h = {"Authorization": _auth_header(api_key), "Accept": "application/json"}
+    _RUNTIME["debug"] = dbg
+
+    api_root = _api_root()
+    h = _request_headers()
 
     if args.command == "summaries":
         has_dates = bool(args.start or args.end)
@@ -285,21 +351,27 @@ def main() -> None:
         if not has_dates and not args.range_preset:
             parser.error("summaries: need --start and --end, or --range")
 
+    http_cli = getattr(args, "http_timeout", None)
+
     if args.command == "health":
-        cmd_health(base, h, timeout=args.connect_timeout)
+        cmd_health(
+            api_root,
+            h,
+            timeout=_resolve_http_timeout(cli_sec=http_cli, fallback_sec=15),
+        )
     elif args.command == "projects":
-        cmd_projects(base, h)
-    elif args.command == "status-bar-today":
-        cmd_status_bar_today(base, h)
-    elif args.command == "all-time-since-today":
-        cmd_all_time_since_today(base, h)
+        cmd_projects(api_root, h, http_timeout=http_cli)
+    elif args.command == "status-bar":
+        cmd_status_bar_today(h, http_timeout=http_cli)
+    elif args.command == "all-time-since":
+        cmd_all_time_since_today(api_root, h, http_timeout=http_cli)
     elif args.command == "stats":
-        cmd_stats(base, h, args)
+        cmd_stats(api_root, h, args)
     elif args.command == "summaries":
-        cmd_summaries(base, h, args)
+        cmd_summaries(api_root, h, args)
     else:
         parser.error(f"unknown command {args.command!r}")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

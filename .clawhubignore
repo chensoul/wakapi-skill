@@ -1,0 +1,30 @@
+.git/
+.github/
+
+# Runtime / deps
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Build artifacts
+build/
+dist/
+
+# Data / temp
+data/
+tmp/
+.cache/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+
+# Tests
+tests/
+
+# GitHub-only docs
+README.md
