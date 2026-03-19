@@ -16,10 +16,14 @@ jobs:
           python-version: "3.11"
 
       - name: Python syntax check
-        run: python3 -m py_compile scripts/wakatime_query.py
+        run: |
+          python3 -m py_compile scripts/wakapi_query.py
+          python3 -m py_compile wakatime-skill/scripts/wakatime_query.py
 
       - name: Run unit tests
-        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+        run: |
+          python3 -m unittest discover -s tests -p 'test_*.py' -v
+          python3 -m unittest discover -s wakatime-skill/tests -p 'test_*.py' -v
 
   package-check:
     runs-on: ubuntu-latest
@@ -42,4 +46,5 @@ jobs:
 
           test -f "$OUT/SKILL.md"
           test -d "$OUT/scripts"
-          test -f "$OUT/scripts/wakatime_query.py"
+          test -f "$OUT/scripts/wakapi_query.py"
+          test ! -d "$OUT/wakatime-skill"

@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Semver version to publish (e.g. 0.1.0)"
+        description: "Semver version to publish (e.g. 0.0.1)"
         required: true
       changelog:
         description: "Changelog text (shown on ClawHub)"
@@ -76,7 +76,7 @@ jobs:
 
           clawhub publish /tmp/skill \
             --slug wakapi-skill \
-            --name "Wakapi / WakaTime Query" \
+            --name "Wakapi Query" \
             --version "$VERSION" \
             --changelog "$CHANGELOG" \
             --tags "$TAGS"

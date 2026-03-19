@@ -1,4 +1,4 @@
-"""Unit tests for scripts/wakatime_query.py (no network)."""
+"""Unit tests for scripts/wakapi_query.py (no network)."""
 
 from __future__ import annotations
 
@@ -18,16 +18,17 @@ from unittest.mock import patch
 
 def _load_module():
     root = Path(__file__).resolve().parents[1]
-    path = root / "scripts" / "wakatime_query.py"
-    spec = importlib.util.spec_from_file_location("wakatime_query", path)
+    path = root / "scripts" / "wakapi_query.py"
+    spec = importlib.util.spec_from_file_location("wakapi_query", path)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
-    sys.modules["wakatime_query"] = mod
+    sys.modules["wakapi_query"] = mod
     spec.loader.exec_module(mod)
     return mod
 
 
 wq = _load_module()
+wq._RUNTIME["prog"] = "wakapi_query"
 
 
 class _FakeUrlResponse:
@@ -132,10 +133,12 @@ class TestCmdHealthMockUrlopen(unittest.TestCase):
 
     def test_200_healthy_exit_0(self) -> None:
         out = io.StringIO()
-        with patch.object(wq.urllib.request, "urlopen", return_value=_FakeUrlResponse(200, b"{}")):
-            with redirect_stdout(out):
-                with self.assertRaises(SystemExit) as cm:
-                    wq.cmd_health("https://wakatime.com/api/v1", {}, timeout=9)
+        body = b'{"app":1,"db":1}'
+        with patch.dict(os.environ, {"WAKAPI_URL": "https://wakapi.dev"}, clear=False):
+            with patch.object(wq.urllib.request, "urlopen", return_value=_FakeUrlResponse(200, body)):
+                with redirect_stdout(out):
+                    with self.assertRaises(SystemExit) as cm:
+                        wq.cmd_health(timeout=9)
         self.assertEqual(cm.exception.code, 0)
         self.assertIn("true", out.getvalue())
 
@@ -143,10 +146,11 @@ class TestCmdHealthMockUrlopen(unittest.TestCase):
         err = _http_error(503)
         out = io.StringIO()
         try:
-            with patch.object(wq.urllib.request, "urlopen", side_effect=err):
-                with redirect_stdout(out):
-                    with self.assertRaises(SystemExit) as cm:
-                        wq.cmd_health("https://wakatime.com/api/v1", {}, timeout=9)
+            with patch.dict(os.environ, {"WAKAPI_URL": "https://wakapi.dev"}, clear=False):
+                with patch.object(wq.urllib.request, "urlopen", side_effect=err):
+                    with redirect_stdout(out):
+                        with self.assertRaises(SystemExit) as cm:
+                            wq.cmd_health(timeout=9)
             self.assertEqual(cm.exception.code, 1)
             self.assertIn("false", out.getvalue())
         finally:
@@ -174,13 +178,13 @@ class TestMainMockUrlopen(unittest.TestCase):
     def test_projects_subcommand(self) -> None:
         env = {
             "WAKAPI_API_KEY": "secret-key",
-            "WAKAPI_URL": "https://wakatime.com",
+            "WAKAPI_URL": "https://wakapi.dev",
         }
         body = json.dumps({"data": []}).encode()
         out = io.StringIO()
         with patch.dict(os.environ, env, clear=False):
             with patch.object(wq.urllib.request, "urlopen", return_value=_FakeUrlResponse(200, body)):
-                with patch.object(sys, "argv", ["wakatime_query.py", "projects"]):
+                with patch.object(sys, "argv", ["wakapi_query.py", "projects"]):
                     with redirect_stdout(out):
                         wq.main()
         self.assertEqual(json.loads(out.getvalue()), {"data": []})
@@ -188,7 +192,7 @@ class TestMainMockUrlopen(unittest.TestCase):
     def test_stats_builds_url_with_query(self) -> None:
         env = {
             "WAKAPI_API_KEY": "k",
-            "WAKAPI_URL": "https://wakatime.com",
+            "WAKAPI_URL": "https://wakapi.dev",
         }
         captured: dict[str, object] = {}
 
@@ -198,7 +202,7 @@ class TestMainMockUrlopen(unittest.TestCase):
 
         out = io.StringIO()
         argv = [
-            "wakatime_query.py",
+            "wakapi_query.py",
             "stats",
             "last_7_days",
             "--timeout",
@@ -213,16 +217,17 @@ class TestMainMockUrlopen(unittest.TestCase):
                         wq.main()
         url = captured["fullurl"]
         assert isinstance(url, str)
-        self.assertIn("/users/current/stats/last_7_days", url)
+        self.assertIn("/api/compat/wakatime/v1/users/current/stats/last_7_days", url)
         self.assertIn("timeout=120", url)
         self.assertIn("writes_only=true", url)
 
     def test_main_health_success(self) -> None:
-        env = {"WAKAPI_API_KEY": "k", "WAKAPI_URL": "https://wakatime.com"}
+        env = {"WAKAPI_URL": "https://wakapi.dev"}
         out = io.StringIO()
+        body = b'{"app":1,"db":1}'
         with patch.dict(os.environ, env, clear=False):
-            with patch.object(wq.urllib.request, "urlopen", return_value=_FakeUrlResponse(200, b"{}")):
-                with patch.object(sys, "argv", ["wakatime_query.py", "health"]):
+            with patch.object(wq.urllib.request, "urlopen", return_value=_FakeUrlResponse(200, body)):
+                with patch.object(sys, "argv", ["wakapi_query.py", "health"]):
                     with redirect_stdout(out):
                         with self.assertRaises(SystemExit) as cm:
                             wq.main()
@@ -239,7 +244,7 @@ class TestMainMockUrlopen(unittest.TestCase):
 
         with patch.dict(os.environ, env, clear=False):
             with patch.object(wq.urllib.request, "urlopen", side_effect=cap):
-                with patch.object(sys, "argv", ["wakatime_query.py", "status-bar"]):
+                with patch.object(sys, "argv", ["wakapi_query.py", "status-bar"]):
                     with redirect_stdout(io.StringIO()):
                         wq.main()
         url = captured["url"]
@@ -256,7 +261,7 @@ class TestMainMockUrlopen(unittest.TestCase):
 
         with patch.dict(os.environ, env, clear=False):
             with patch.object(wq.urllib.request, "urlopen", side_effect=cap):
-                with patch.object(sys, "argv", ["wakatime_query.py", "all-time-since"]):
+                with patch.object(sys, "argv", ["wakapi_query.py", "all-time-since"]):
                     with redirect_stdout(io.StringIO()):
                         wq.main()
         url = captured["url"]
@@ -264,7 +269,7 @@ class TestMainMockUrlopen(unittest.TestCase):
         self.assertIn("/api/compat/wakatime/v1/users/current/all_time_since_today", url)
 
     def test_main_summaries_start_end(self) -> None:
-        env = {"WAKAPI_API_KEY": "k", "WAKAPI_URL": "https://wakatime.com"}
+        env = {"WAKAPI_API_KEY": "k", "WAKAPI_URL": "https://wakapi.dev"}
         captured: dict[str, object] = {}
 
         def cap(req, timeout=None, **_):
@@ -272,7 +277,7 @@ class TestMainMockUrlopen(unittest.TestCase):
             return _FakeUrlResponse(200, b"{}")
 
         argv = [
-            "wakatime_query.py",
+            "wakapi_query.py",
             "summaries",
             "--start",
             "2025-03-01",
@@ -294,7 +299,7 @@ class TestMainMockUrlopen(unittest.TestCase):
                         wq.main()
         url = captured["url"]
         assert isinstance(url, str)
-        self.assertIn("/users/current/summaries?", url)
+        self.assertIn("/api/compat/wakatime/v1/users/current/summaries?", url)
         self.assertIn("start=2025-03-01", url)
         self.assertIn("end=2025-03-07", url)
         self.assertIn("project=x", url)
@@ -303,9 +308,9 @@ class TestMainMockUrlopen(unittest.TestCase):
         self.assertIn("writes_only=false", url)
 
     def test_main_summaries_only_start_exits_2(self) -> None:
-        env = {"WAKAPI_API_KEY": "k", "WAKAPI_URL": "https://wakatime.com"}
+        env = {"WAKAPI_API_KEY": "k", "WAKAPI_URL": "https://wakapi.dev"}
         stderr = io.StringIO()
-        argv = ["wakatime_query.py", "summaries", "--start", "2025-01-01"]
+        argv = ["wakapi_query.py", "summaries", "--start", "2025-01-01"]
         with patch.dict(os.environ, env, clear=False):
             with patch.object(sys, "argv", argv):
                 with redirect_stderr(stderr):
@@ -315,10 +320,10 @@ class TestMainMockUrlopen(unittest.TestCase):
         self.assertIn("summaries", stderr.getvalue())
 
     def test_main_summaries_range_with_start_exits_2(self) -> None:
-        env = {"WAKAPI_API_KEY": "k", "WAKAPI_URL": "https://wakatime.com"}
+        env = {"WAKAPI_API_KEY": "k", "WAKAPI_URL": "https://wakapi.dev"}
         stderr = io.StringIO()
         argv = [
-            "wakatime_query.py",
+            "wakapi_query.py",
             "summaries",
             "--start",
             "2025-01-01",
@@ -335,33 +340,33 @@ class TestMainMockUrlopen(unittest.TestCase):
         self.assertEqual(cm.exception.code, 2)
 
     def test_main_summaries_neither_range_nor_dates_exits_2(self) -> None:
-        env = {"WAKAPI_API_KEY": "k", "WAKAPI_URL": "https://wakatime.com"}
+        env = {"WAKAPI_API_KEY": "k", "WAKAPI_URL": "https://wakapi.dev"}
         stderr = io.StringIO()
         with patch.dict(os.environ, env, clear=False):
-            with patch.object(sys, "argv", ["wakatime_query.py", "summaries"]):
+            with patch.object(sys, "argv", ["wakapi_query.py", "summaries"]):
                 with redirect_stderr(stderr):
                     with self.assertRaises(SystemExit) as cm:
                         wq.main()
         self.assertEqual(cm.exception.code, 2)
 
     def test_main_debug_sets_runtime(self) -> None:
-        env = {"WAKAPI_API_KEY": "k", "WAKAPI_URL": "https://wakatime.com"}
+        env = {"WAKAPI_API_KEY": "k", "WAKAPI_URL": "https://wakapi.dev"}
         stderr = io.StringIO()
         try:
             with patch.dict(os.environ, env, clear=False):
                 with patch.object(wq.urllib.request, "urlopen", return_value=_FakeUrlResponse(200, b"{}")):
-                    with patch.object(sys, "argv", ["wakatime_query.py", "-d", "projects"]):
+                    with patch.object(sys, "argv", ["wakapi_query.py", "-d", "projects"]):
                         with redirect_stdout(io.StringIO()):
                             with redirect_stderr(stderr):
                                 wq.main()
             self.assertTrue(wq._RUNTIME["debug"])
-            self.assertIn("wakatime_query: GET", stderr.getvalue())
+            self.assertIn("wakapi_query: GET", stderr.getvalue())
         finally:
             wq._RUNTIME["debug"] = False
 
     def test_main_parse_args_unknown_command_branch(self) -> None:
         """Hit defensive `else` in main (impossible with stock argparse)."""
-        env = {"WAKAPI_API_KEY": "k", "WAKAPI_URL": "https://wakatime.com"}
+        env = {"WAKAPI_API_KEY": "k", "WAKAPI_URL": "https://wakapi.dev"}
         orig = argparse.ArgumentParser.parse_args
 
         def hijack(self, args=None):
@@ -372,7 +377,7 @@ class TestMainMockUrlopen(unittest.TestCase):
         stderr = io.StringIO()
         with patch.dict(os.environ, env, clear=False):
             with patch.object(argparse.ArgumentParser, "parse_args", hijack):
-                with patch.object(sys, "argv", ["wakatime_query.py", "health"]):
+                with patch.object(sys, "argv", ["wakapi_query.py", "health"]):
                     with redirect_stderr(stderr):
                         with self.assertRaises(SystemExit) as cm:
                             wq.main()
@@ -405,7 +410,7 @@ class TestGetJsonMoreBranches(unittest.TestCase):
             with patch.object(wq.urllib.request, "urlopen", return_value=_FakeUrlResponse(200, b"{}")):
                 with redirect_stderr(stderr):
                     wq._get_json("http://example.test/dbg", {})
-            self.assertIn("wakatime_query: GET http://example.test/dbg", stderr.getvalue())
+            self.assertIn("wakapi_query: GET http://example.test/dbg", stderr.getvalue())
         finally:
             wq._RUNTIME["debug"] = False
 
@@ -416,23 +421,25 @@ class TestCmdHealthMoreBranches(unittest.TestCase):
 
     def test_non_200_exit_1(self) -> None:
         out = io.StringIO()
-        with patch.object(wq.urllib.request, "urlopen", return_value=_FakeUrlResponse(204, b"")):
-            with redirect_stdout(out):
-                with self.assertRaises(SystemExit) as cm:
-                    wq.cmd_health("https://wakatime.com/api/v1", {}, timeout=5)
+        with patch.dict(os.environ, {"WAKAPI_URL": "https://wakapi.dev"}, clear=False):
+            with patch.object(wq.urllib.request, "urlopen", return_value=_FakeUrlResponse(204, b"")):
+                with redirect_stdout(out):
+                    with self.assertRaises(SystemExit) as cm:
+                        wq.cmd_health(timeout=5)
         self.assertEqual(cm.exception.code, 1)
         self.assertIn("false", out.getvalue())
 
     def test_urlerror_exit_1(self) -> None:
         out = io.StringIO()
-        with patch.object(
-            wq.urllib.request,
-            "urlopen",
-            side_effect=urllib.error.URLError("network down"),
-        ):
-            with redirect_stdout(out):
-                with self.assertRaises(SystemExit) as cm:
-                    wq.cmd_health("https://wakatime.com/api/v1", {}, timeout=5)
+        with patch.dict(os.environ, {"WAKAPI_URL": "https://wakapi.dev"}, clear=False):
+            with patch.object(
+                wq.urllib.request,
+                "urlopen",
+                side_effect=urllib.error.URLError("network down"),
+            ):
+                with redirect_stdout(out):
+                    with self.assertRaises(SystemExit) as cm:
+                        wq.cmd_health(timeout=5)
         self.assertEqual(cm.exception.code, 1)
         self.assertIn("false", out.getvalue())
 
@@ -447,14 +454,28 @@ class TestCmdHealthMoreBranches(unittest.TestCase):
         err = urllib.error.HTTPError("http://t", 500, "err", {}, _Fp())
         out = io.StringIO()
         try:
-            with patch.object(wq.urllib.request, "urlopen", side_effect=err):
-                with redirect_stdout(out):
-                    with self.assertRaises(SystemExit) as cm:
-                        wq.cmd_health("https://wakatime.com/api/v1", {}, timeout=5)
+            with patch.dict(os.environ, {"WAKAPI_URL": "https://wakapi.dev"}, clear=False):
+                with patch.object(wq.urllib.request, "urlopen", side_effect=err):
+                    with redirect_stdout(out):
+                        with self.assertRaises(SystemExit) as cm:
+                            wq.cmd_health(timeout=5)
             self.assertEqual(cm.exception.code, 1)
             self.assertIn("false", out.getvalue())
         finally:
             err.close()
+
+    def test_db_down_json_exit_1_with_detail(self) -> None:
+        out = io.StringIO()
+        body = b'{"app":1,"db":0}'
+        with patch.dict(os.environ, {"WAKAPI_URL": "https://wakapi.dev"}, clear=False):
+            with patch.object(wq.urllib.request, "urlopen", return_value=_FakeUrlResponse(200, body)):
+                with redirect_stdout(out):
+                    with self.assertRaises(SystemExit) as cm:
+                        wq.cmd_health(timeout=5)
+        self.assertEqual(cm.exception.code, 1)
+        parsed = json.loads(out.getvalue())
+        self.assertFalse(parsed["healthy"])
+        self.assertIn("detail", parsed)
 
 
 class TestCmdStatusBarAndAllTime(unittest.TestCase):
@@ -525,9 +546,10 @@ class TestCmdSummaries(unittest.TestCase):
 
 
 class TestNormalizeBase(unittest.TestCase):
-    def test_empty_uses_default(self):
-        self.assertEqual(wq._normalize_base(""), wq._DEFAULT_BASE)
-        self.assertEqual(wq._normalize_base("   "), wq._DEFAULT_BASE)
+    def test_empty_exits(self):
+        with self.assertRaises(SystemExit) as cm:
+            wq._normalize_base("")
+        self.assertIn("WAKAPI_URL is required", str(cm.exception))
 
     def test_strips_trailing_slash(self):
         self.assertEqual(wq._normalize_base("https://wakapi.dev/"), "https://wakapi.dev")
@@ -536,40 +558,19 @@ class TestNormalizeBase(unittest.TestCase):
         self.assertEqual(wq._normalize_base("https://example.com"), "https://example.com")
 
 
-class TestHostFromBase(unittest.TestCase):
-    def test_wakatime(self):
-        self.assertEqual(wq._host_from_base("https://wakatime.com"), "wakatime.com")
-
-    def test_wakapi(self):
-        self.assertEqual(wq._host_from_base("https://wakapi.dev"), "wakapi.dev")
-
-
-class TestCompatApiPrefix(unittest.TestCase):
-    def test_wakatime_cloud(self):
-        self.assertEqual(wq._compat_api_prefix("https://wakatime.com"), "/api/v1")
-
-    def test_other_host(self):
-        self.assertEqual(
-            wq._compat_api_prefix("https://wakapi.dev"),
-            "/api/compat/wakatime/v1",
-        )
-
-
 class TestApiRootAndStatusbar(unittest.TestCase):
-    def test_api_root_wakatime(self):
-        with patch.dict(os.environ, {"WAKAPI_URL": "https://wakatime.com"}, clear=False):
-            self.assertEqual(wq._api_root(), "https://wakatime.com/api/v1")
-
-    def test_api_root_wakapi(self):
+    def test_api_root_compat(self):
         with patch.dict(os.environ, {"WAKAPI_URL": "https://wakapi.dev"}, clear=False):
             self.assertEqual(
                 wq._api_root(),
                 "https://wakapi.dev/api/compat/wakatime/v1",
             )
 
-    def test_api_root_empty_env_defaults_wakatime(self):
+    def test_api_root_empty_env_exits(self):
         with patch.dict(os.environ, {"WAKAPI_URL": ""}, clear=False):
-            self.assertEqual(wq._api_root(), "https://wakatime.com/api/v1")
+            with self.assertRaises(SystemExit) as cm:
+                wq._api_root()
+            self.assertIn("WAKAPI_URL is required", str(cm.exception))
 
     def test_statusbar_always_api_v1(self):
         with patch.dict(os.environ, {"WAKAPI_URL": "https://wakapi.dev"}, clear=False):
@@ -643,6 +644,23 @@ class TestRequestHeaders(unittest.TestCase):
                 h["Authorization"],
                 wq._auth_basic_value("abc"),
             )
+
+
+class TestParseWakapiHealthBody(unittest.TestCase):
+    def test_json_ok(self) -> None:
+        ok, detail = wq._parse_wakapi_health_body('{"app":1,"db":1}')
+        self.assertTrue(ok)
+        self.assertIsNone(detail)
+
+    def test_plain_ok(self) -> None:
+        ok, detail = wq._parse_wakapi_health_body("app=1\ndb=1\n")
+        self.assertTrue(ok)
+        self.assertIsNone(detail)
+
+    def test_json_db_down(self) -> None:
+        ok, detail = wq._parse_wakapi_health_body('{"app":1,"db":0}')
+        self.assertFalse(ok)
+        self.assertIsNotNone(detail)
 
 
 class TestRuntimeDebug(unittest.TestCase):

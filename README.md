@@ -7,130 +7,105 @@
 [![License](https://img.shields.io/github/license/chensoul/wakapi-skill)](./LICENSE)
 [![Publish to ClawHub](https://github.com/chensoul/wakapi-skill/actions/workflows/clawhub-publish.yml/badge.svg)](https://github.com/chensoul/wakapi-skill/actions/workflows/clawhub-publish.yml)
 
-Portable **agent skill** to query **WakaTime** or **Wakapi** coding stats via a small Python CLI. 
+Portable **agent skill** for **Wakapi**: read-only coding stats via a small Python CLI (`WAKAPI_URL`, `WAKAPI_API_KEY`).
+
+## Documentation
+
+| File | Contents |
+|------|----------|
+| **[SKILL.md](SKILL.md)** | When to use, env, **subcommand table**, grouped CLI examples |
+| **[references/wakapi-api.md](references/wakapi-api.md)** | URLs, auth, **`stats` vs `summaries`**, Wakapi **`--range`** semantics, **curl**, timeouts |
 
 ## Layout
 
 ```
 wakapi-skill/
-├── SKILL.md
+├── SKILL.md                 
 ├── README.md
 ├── LICENSE
 ├── references/
-│   ├── wakapi-api.md
-│   └── wakatime-api.md
+│   └── wakapi-api.md
 ├── scripts/
-│   └── wakatime_query.py
-└── tests/
-    └── test_wakatime_query.py
+│   └── wakapi_query.py
+├── tests/
+│   └── test_wakapi_query.py
 ```
-
-Symlink or copy the folder into your product’s skills directory so `SKILL.md` is discovered.
 
 ## Configuration
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `WAKAPI_API_KEY` | Yes | API key from WakaTime or Wakapi. Sent on every request as **HTTP Basic** auth: `Authorization: Basic` + base64(key) only (no username). |
-| `WAKAPI_URL` | No | Site **origin** (scheme + host; trailing `/` stripped). Unset ⇒ **`https://wakatime.com`**. Set for Wakapi / self-hosted (e.g. `https://wakapi.dev`). The key is sent to **this** host. **`status-bar`** always requests **`{origin}/api/v1/users/current/statusbar/today`**. Other subcommands use **`/api/v1`** only when the hostname is **exactly** `wakatime.com`; **any other host** (including Wakapi) uses **`/api/compat/wakatime/v1`** for those calls — see `scripts/wakatime_query.py` (`_compat_api_prefix`). |
+| `WAKAPI_URL` | Yes | Instance **origin** (e.g. `https://wakapi.dev`). |
+| `WAKAPI_API_KEY` | Yes* | API key (**HTTP Basic**, key only). *Not required for **`health`** (`GET /api/health`). |
 
-Do not commit secrets. **No other environment variables** are read; use CLI flags (see below).
+Do not commit secrets. **No other environment variables** are read; use CLI flags (see `SKILL.md`).
 
 ## Using & developing
 
-For **contributors** or anyone running the CLI from a **git checkout** (not only as an installed skill folder).
-
-### Clone the repository
-
-Upstream:
+### Clone
 
 ```bash
 git clone https://github.com/chensoul/wakapi-skill.git
 cd wakapi-skill
 ```
 
-SSH: `git clone git@github.com:chensoul/wakapi-skill.git`. If you use a **fork**, clone your fork’s URL instead.
+### Virtualenv (optional)
 
-### Python virtual environment (recommended)
-
-The CLI uses **Python 3** and the **standard library only** — no `requirements.txt` is required to run or test.
+Python **3.x**, **stdlib only**.
 
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate          # Linux / macOS
-# .venv\Scripts\activate           # Windows cmd
-# .venv\Scripts\Activate.ps1       # Windows PowerShell
+source .venv/bin/activate
 ```
 
-`.venv/` is gitignored. CI uses **Python 3.11**; any recent 3.x should work.
-
-**Optional — coverage** (for line coverage reports):
+### Run CLI
 
 ```bash
-pip install coverage
-```
-
-### Run the CLI from the repo
-
-Stay in the repo root (with venv activated if you use one). Set [configuration](#configuration) as usual:
-
-```bash
+# Instance origin + API key (key not needed only for `health`)
+export WAKAPI_URL="https://your-wakapi.example"
 export WAKAPI_API_KEY="your-key"
-# optional: export WAKAPI_URL="https://your-wakapi.example"
 
-python3 scripts/wakatime_query.py --help
-python3 scripts/wakatime_query.py health
-python3 scripts/wakatime_query.py projects
+python3 scripts/wakapi_query.py --help
+python3 scripts/wakapi_query.py health                    # GET /api/health
+python3 scripts/wakapi_query.py summaries --range today   # compat summaries ?range=
+python3 scripts/wakapi_query.py summaries --range last_7_days --timezone Asia/Shanghai
 ```
 
-### Run tests
+More examples: **[SKILL.md](SKILL.md)** · API details: **[references/wakapi-api.md](references/wakapi-api.md)**.
 
-Tests use **`unittest`** and **`unittest.mock`** (they patch `urllib.request.urlopen`; **no real network**):
+### Tests
+
+Wakapi:
 
 ```bash
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-Quiet run (e.g. in scripts):
+### Coverage (optional)
 
 ```bash
-python3 -m unittest discover -s tests -p 'test_*.py' -q
-```
-
-### Code coverage (optional)
-
-With `coverage` installed:
-
-```bash
+pip install coverage
 coverage run --source=scripts -m unittest discover -s tests -p 'test_*.py' -q
-coverage report -m --include='scripts/wakatime_query.py'
+coverage report -m --include='scripts/wakapi_query.py'
 ```
-
-`wakatime_query.py` is kept at **100%** line coverage; the `if __name__ == "__main__"` block uses `# pragma: no cover` because tests call `main()` via import.
 
 ### What to edit
 
 | Area | Files |
 |------|--------|
-| CLI behavior / endpoints | `scripts/wakatime_query.py` |
-| Agent-facing instructions | `SKILL.md`, `references/*.md` |
-| Tests | `tests/test_wakatime_query.py` |
-
-After changes, run **unittest** (and optionally **coverage**) before opening a PR.
+| Wakapi CLI | `scripts/wakapi_query.py` |
+| Agent docs | `SKILL.md`, `references/wakapi-api.md`, … |
+| Tests | `tests/test_wakapi_query.py` |
 
 ## CI & publishing
 
-Workflows mirror [wakapi-skill](https://github.com/chensoul/wakapi-skill/tree/main/.github/workflows):
-
 | Workflow | When | What |
 |----------|------|------|
-| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | Every push / PR | `py_compile`, `unittest`, **package-check** (rsync + [`.clawhubignore`](.clawhubignore)) |
-| [`.github/workflows/release.yml`](.github/workflows/release.yml) | Push tag `v*` | Tarball + [GitHub Release](https://github.com/softprops/action-gh-release) |
-| [`.github/workflows/clawhub-publish.yml`](.github/workflows/clawhub-publish.yml) | Tag `v*` or **workflow_dispatch** | Publish to ClawHub (`CLAWHUB_TOKEN` secret) |
+| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | Push / PR | `py_compile`, `unittest`, **package-check** (publish dir = Wakapi skill only; see `.clawhubignore`) |
+| [`.github/workflows/release.yml`](.github/workflows/release.yml) | Tag `v*` | Tarball |
+| [`.github/workflows/clawhub-publish.yml`](.github/workflows/clawhub-publish.yml) | Tag / dispatch | Publish **`wakapi-skill`** to ClawHub |
 
-ClawHub slug: **`wakapi-skill`**, display name: **Wakapi / WakaTime Query**.
-
-**Registry metadata:** [`SKILL.md`](SKILL.md) frontmatter uses **`metadata.openclaw`**: **`requires.env`** is **`["WAKAPI_URL", "WAKAPI_API_KEY"]`** and **`primaryEnv`** is **`WAKAPI_API_KEY`**, plus **`homepage`** / **`repository`** ([ClawHub metadata & scanners](https://github.com/openclaw/clawhub/issues/522)). The **key is required**; **API URL is optional** (defaults to WakaTime cloud) — see the skill description for **HTTP Basic** usage.
+ClawHub slug: **`wakapi-skill`**. Registry metadata: [`SKILL.md`](SKILL.md).
 
 ## License
 

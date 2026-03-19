@@ -1,20 +1,9 @@
 #!/usr/bin/env python3
 """
-WakaTime / Wakapi stats CLI (stdlib only).
+Wakapi coding-stats CLI (stdlib only).
 
-Environment: WAKAPI_API_KEY (required) and WAKAPI_URL (optional, default WakaTime cloud).
-Auth: HTTP Basic — Authorization header is "Basic " + base64(api_key) (key only, no username).
-Other options: -d/--debug may appear anywhere. Optional per-command --timeout on some subcommands.
-
-Examples:
-  python3 scripts/wakatime_query.py projects -d
-  python3 scripts/wakatime_query.py status-bar
-  python3 scripts/wakatime_query.py all-time-since
-  python3 scripts/wakatime_query.py stats last_7_days
-  python3 scripts/wakatime_query.py summaries --start 2025-03-01 --end 2025-03-07
-  python3 scripts/wakatime_query.py summaries --range "Last 7 Days" \\
-    --project myapp --branches main,develop --timezone Asia/Shanghai
-  python3 scripts/wakatime_query.py health
+Env: WAKAPI_URL (required), WAKAPI_API_KEY (required for authenticated subcommands).
+Health uses Wakapi native GET /api/health (no API key).
 """
 
 from __future__ import annotations
@@ -29,17 +18,15 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
-
-_DEFAULT_BASE = "https://wakatime.com"
-
-# Set in main() from CLI (only env vars used: WAKAPI_API_KEY, WAKAPI_URL).
 _RUNTIME: dict[str, Any] = {
     "debug": False,
+    "prog": "wakapi_query",
 }
+
+_WAKAPI_HEALTH_PATH = "/api/health"
 
 
 def _resolve_http_timeout(*, cli_sec: float | None, fallback_sec: float) -> float:
-    """Subcommand --timeout if set, else fallback_sec."""
     if cli_sec is not None:
         return cli_sec
     return fallback_sec
@@ -50,7 +37,6 @@ def _debug_enabled() -> bool:
 
 
 def _strip_debug_argv(argv: list[str]) -> tuple[bool, list[str]]:
-    """Remove -d / --debug from anywhere in argv; return (debug_enabled, rest)."""
     debug = False
     rest: list[str] = []
     for a in argv:
@@ -63,42 +49,41 @@ def _strip_debug_argv(argv: list[str]) -> tuple[bool, list[str]]:
 
 def _log_request(method: str, url: str) -> None:
     if _debug_enabled():
-        print(f"wakatime_query: {method} {url}", file=sys.stderr)
+        prog = _RUNTIME.get("prog", "wakapi_query")
+        print(f"{prog}: {method} {url}", file=sys.stderr)
 
 
 def _normalize_base(url: str) -> str:
     u = url.strip().rstrip("/")
     if not u:
-        return _DEFAULT_BASE
+        raise SystemExit(
+            "WAKAPI_URL is required for the Wakapi skill. "
+            "Example: export WAKAPI_URL=https://wakapi.example.com"
+        )
     return u
 
 
-def _host_from_base(base: str) -> str:
-    return (urllib.parse.urlparse(base).hostname or "").lower()
-
-
 def _base_url_from_env() -> str:
-    """API host from env: WAKAPI_URL (optional; empty => WakaTime cloud default in _normalize_base)."""
     return os.environ.get("WAKAPI_URL", "").strip()
 
 
-def _compat_api_prefix(base: str) -> str:
-    """Most WakaTime-shaped endpoints: WakaTime cloud uses /api/v1; Wakapi uses compat prefix."""
-    if _host_from_base(base) == "wakatime.com":
-        return "/api/v1"
+def _api_path_prefix() -> str:
     return "/api/compat/wakatime/v1"
 
 
 def _api_root() -> str:
-    """API root for health, projects, stats, summaries, etc. (not status-bar)."""
     base = _normalize_base(_base_url_from_env())
-    return base + _compat_api_prefix(base)
+    return base + _api_path_prefix()
 
 
 def _statusbar_today_url() -> str:
-    """Wakapi serves today statusbar under /api/v1; use that path on every host."""
     base = _normalize_base(_base_url_from_env())
     return f"{base}/api/v1/users/current/statusbar/today"
+
+
+def _wakapi_health_url() -> str:
+    base = _normalize_base(_base_url_from_env())
+    return base + _WAKAPI_HEALTH_PATH
 
 
 def _auth_basic_value(api_key: str) -> str:
@@ -109,7 +94,6 @@ def _auth_basic_value(api_key: str) -> str:
 
 
 def _request_headers() -> dict[str, str]:
-    """WakaTime and Wakapi: Authorization Basic base64(api_key)."""
     key = os.environ.get("WAKAPI_API_KEY", "")
     if not key:
         raise SystemExit("WAKAPI_API_KEY is empty")
@@ -148,23 +132,61 @@ def _get_json(
         except json.JSONDecodeError:
             data = payload
         print(json.dumps({"http_status": e.code, "error": data}, indent=2), file=sys.stderr)
-        # Always exit 1 on HTTP errors so shells see a stable failure code (avoid 401→145 mod 256).
         raise SystemExit(1) from e
     except urllib.error.URLError as e:
         print(str(e.reason if hasattr(e, "reason") else e), file=sys.stderr)
         raise SystemExit(2) from e
 
 
-def cmd_health(api_root: str, hdr: dict[str, str], *, timeout: float) -> None:
-    """Remote probe; healthy only on HTTP 200. Stdout: {"healthy": bool}."""
-    url = f"{api_root}/users/current/projects"
+def _parse_wakapi_health_body(body: str) -> tuple[bool, str | None]:
+    """
+    Wakapi /api/health returns JSON if request has Content-Type: application/json,
+    else plain text 'app=1\\ndb=0|1'. See muety/wakapi routes/api/health.go.
+    """
+    text = body.strip()
+    if not text:
+        return False, "empty body"
+    if text.startswith("{"):
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            return False, "invalid JSON"
+        app = data.get("app")
+        db = data.get("db")
+        if app == 1 and db == 1:
+            return True, None
+        return False, f"app={app!r} db={db!r}"
+    # plain text
+    db_val: int | None = None
+    app_val: int | None = None
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("db="):
+            try:
+                db_val = int(line.split("=", 1)[1].strip())
+            except ValueError:
+                pass
+        if line.startswith("app="):
+            try:
+                app_val = int(line.split("=", 1)[1].strip())
+            except ValueError:
+                pass
+    if app_val == 1 and db_val == 1:
+        return True, None
+    return False, f"app={app_val!r} db={db_val!r}"
+
+
+def cmd_health(*, timeout: float) -> None:
+    """GET {WAKAPI_URL}/api/health — Wakapi native health (DB ping); no API key."""
+    url = _wakapi_health_url()
     _log_request("GET", url)
+    # Wakapi returns JSON when request Content-Type is application/json (see health.go).
+    hdr = {"Content-Type": "application/json", "Accept": "application/json"}
     req = urllib.request.Request(url, method="GET", headers=hdr)
-    code: int | None = None
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             code = resp.getcode()
-            resp.read()  # drain body
+            raw = resp.read().decode("utf-8")
     except urllib.error.HTTPError as e:
         try:
             e.read()
@@ -176,9 +198,16 @@ def cmd_health(api_root: str, hdr: dict[str, str], *, timeout: float) -> None:
         print(json.dumps({"healthy": False}))
         raise SystemExit(1)
 
-    healthy = code == 200
-    print(json.dumps({"healthy": healthy}))
-    raise SystemExit(0 if healthy else 1)
+    if code != 200:
+        print(json.dumps({"healthy": False}))
+        raise SystemExit(1)
+
+    ok, detail = _parse_wakapi_health_body(raw)
+    out: dict[str, Any] = {"healthy": ok}
+    if detail and not ok:
+        out["detail"] = detail
+    print(json.dumps(out))
+    raise SystemExit(0 if ok else 1)
 
 
 def cmd_projects(api_root: str, hdr: dict[str, str], *, http_timeout: float | None) -> None:
@@ -188,7 +217,6 @@ def cmd_projects(api_root: str, hdr: dict[str, str], *, http_timeout: float | No
 
 
 def cmd_status_bar_today(hdr: dict[str, str], *, http_timeout: float | None) -> None:
-    # Always …/api/v1/…/statusbar/today (WakaTime + Wakapi); other commands use _api_root() host rules.
     url = _statusbar_today_url()
     _code, data = _get_json(url, hdr, timeout=http_timeout)
     print(json.dumps(data, indent=2))
@@ -258,12 +286,16 @@ def _add_http_timeout_arg(p: argparse.ArgumentParser, *, fallback: float) -> Non
 
 def main() -> None:
     dbg, argv_cmd = _strip_debug_argv(sys.argv[1:])
+
+    desc = (
+        "Wakapi coding stats (compat /api/compat/wakatime/v1) — read-only API. "
+        "Env: WAKAPI_URL (required), WAKAPI_API_KEY (required except health uses /api/health). "
+        "Auth: HTTP Basic with API key only."
+    )
+
     parser = argparse.ArgumentParser(
-        description=(
-            "WakaTime / Wakapi coding stats (read-only API). "
-            "Env: WAKAPI_API_KEY (required), WAKAPI_URL (optional). "
-            "Auth: HTTP Basic with API key only."
-        ),
+        prog=_RUNTIME["prog"],
+        description=desc,
         epilog="Debug: use -d or --debug anywhere (before or after the subcommand) to print each request URL to stderr.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -271,7 +303,7 @@ def main() -> None:
 
     p_health = sub.add_parser(
         "health",
-        help='Connectivity check; prints {"healthy": true|false}',
+        help='Wakapi GET /api/health; prints {"healthy": true|false} (and optional detail)',
     )
     _add_http_timeout_arg(p_health, fallback=15)
 
@@ -288,7 +320,10 @@ def main() -> None:
     p_stats.add_argument(
         "stats_range",
         metavar="range",
-        help="e.g. last_7_days, 2025, 2025-03, all_time",
+        help=(
+            "Wakapi named interval only, e.g. last_7_days, last_30_days, last_6_months, last_year, "
+            "today, yesterday, week, month, year, all_time — not YYYY or YYYY-MM (use summaries --start/--end)"
+        ),
     )
     p_stats.add_argument(
         "--timeout",
@@ -307,6 +342,15 @@ def main() -> None:
     p_sum = sub.add_parser(
         "summaries",
         help="Daily summaries for a date range or preset",
+        description=(
+            "Time window (pick one):\n"
+            "  --range RANGE     Preset → query param range= (Wakapi interval aliases, e.g. today, last_7_days, "
+            '"Last 7 Days").\n'
+            "  --start + --end   Fixed dates YYYY-MM-DD (use both).\n"
+            "Optional filters (either mode): --project, --branches, --timezone, --timeout, --writes-only.\n"
+            "Intervals: https://github.com/muety/wakapi/blob/master/models/interval.go"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p_sum.add_argument("--start", help="Start date (YYYY-MM-DD); use with --end")
     p_sum.add_argument("--end", help="End date (YYYY-MM-DD); use with --start")
@@ -314,43 +358,40 @@ def main() -> None:
         "--range",
         dest="range_preset",
         metavar="RANGE",
-        help='Preset range, e.g. "Last 7 Days", Today (mutually exclusive with --start/--end)',
+        help=(
+            "Preset for range= (e.g. today, last_7_days, or Title Case from Wakapi). "
+            "Mutually exclusive with --start/--end. "
+            "May combine with --project, --branches, --timezone, --timeout, --writes-only."
+        ),
     )
-    p_sum.add_argument(
-        "--project",
-        metavar="NAME",
-        help="Filter by project name",
-    )
+    p_sum.add_argument("--project", metavar="NAME", help="Filter by project name (query: project)")
     p_sum.add_argument(
         "--branches",
         metavar="NAMES",
-        help="Comma-separated branch names",
+        help="Comma-separated branch names (query: branches)",
     )
     p_sum.add_argument(
         "--timezone",
         metavar="TZ",
-        help="IANA timezone for dates",
+        help="IANA timezone for dates (query: timezone)",
     )
     p_sum.add_argument(
         "--timeout",
         type=int,
         default=None,
         metavar="N",
-        help="Keystroke timeout (seconds)",
+        help="API query: keystroke timeout in seconds (not HTTP socket; HTTP stays 60s)",
     )
     p_sum.add_argument(
         "--writes-only",
         choices=("true", "false"),
         default=None,
-        help="writes_only",
+        help="API query: writes_only=true|false",
     )
 
     args = parser.parse_args(argv_cmd)
 
     _RUNTIME["debug"] = dbg
-
-    api_root = _api_root()
-    h = _request_headers()
 
     if args.command == "summaries":
         has_dates = bool(args.start or args.end)
@@ -364,21 +405,21 @@ def main() -> None:
     http_cli = getattr(args, "http_timeout", None)
 
     if args.command == "health":
+        # Needs origin only; WAKAPI_API_KEY not required.
+        _normalize_base(_base_url_from_env())
         cmd_health(
-            api_root,
-            h,
             timeout=_resolve_http_timeout(cli_sec=http_cli, fallback_sec=15),
         )
     elif args.command == "projects":
-        cmd_projects(api_root, h, http_timeout=http_cli)
+        cmd_projects(_api_root(), _request_headers(), http_timeout=http_cli)
     elif args.command == "status-bar":
-        cmd_status_bar_today(h, http_timeout=http_cli)
+        cmd_status_bar_today(_request_headers(), http_timeout=http_cli)
     elif args.command == "all-time-since":
-        cmd_all_time_since_today(api_root, h, http_timeout=http_cli)
+        cmd_all_time_since_today(_api_root(), _request_headers(), http_timeout=http_cli)
     elif args.command == "stats":
-        cmd_stats(api_root, h, args)
+        cmd_stats(_api_root(), _request_headers(), args)
     elif args.command == "summaries":
-        cmd_summaries(api_root, h, args)
+        cmd_summaries(_api_root(), _request_headers(), args)
     else:
         parser.error(f"unknown command {args.command!r}")
 

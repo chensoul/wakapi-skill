@@ -1,6 +1,9 @@
 .git/
 .github/
 
+# Nested subtree — not included in the published Wakapi skill tarball
+wakatime-skill/
+
 # Runtime / deps
 node_modules/
 .venv/
