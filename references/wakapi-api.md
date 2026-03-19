@@ -20,7 +20,7 @@ Accept: application/json
 
 ## 路径前缀（读 stats 时）
 
-设实例根为 `WAKAPI_BASE_URL`（无尾部 `/`），例如 `https://wakapi.dev`。
+设实例根为 `WAKAPI_URL`（无尾部 `/`），例如 `https://wakapi.dev`（与 `scripts/wakatime_query.py` 一致）。
 
 | 用途 | 前缀 | 说明 |
 |------|------|------|

@@ -174,7 +174,7 @@ class TestMainMockUrlopen(unittest.TestCase):
     def test_projects_subcommand(self) -> None:
         env = {
             "WAKAPI_API_KEY": "secret-key",
-            "WAKAPI_BASE_URL": "https://wakatime.com",
+            "WAKAPI_URL": "https://wakatime.com",
         }
         body = json.dumps({"data": []}).encode()
         out = io.StringIO()
@@ -188,7 +188,7 @@ class TestMainMockUrlopen(unittest.TestCase):
     def test_stats_builds_url_with_query(self) -> None:
         env = {
             "WAKAPI_API_KEY": "k",
-            "WAKAPI_BASE_URL": "https://wakatime.com",
+            "WAKAPI_URL": "https://wakatime.com",
         }
         captured: dict[str, object] = {}
 
@@ -218,7 +218,7 @@ class TestMainMockUrlopen(unittest.TestCase):
         self.assertIn("writes_only=true", url)
 
     def test_main_health_success(self) -> None:
-        env = {"WAKAPI_API_KEY": "k", "WAKAPI_BASE_URL": "https://wakatime.com"}
+        env = {"WAKAPI_API_KEY": "k", "WAKAPI_URL": "https://wakatime.com"}
         out = io.StringIO()
         with patch.dict(os.environ, env, clear=False):
             with patch.object(wq.urllib.request, "urlopen", return_value=_FakeUrlResponse(200, b"{}")):
@@ -230,7 +230,7 @@ class TestMainMockUrlopen(unittest.TestCase):
         self.assertIn("true", out.getvalue())
 
     def test_main_status_bar_hits_statusbar_url(self) -> None:
-        env = {"WAKAPI_API_KEY": "k", "WAKAPI_BASE_URL": "https://wakapi.dev"}
+        env = {"WAKAPI_API_KEY": "k", "WAKAPI_URL": "https://wakapi.dev"}
         captured: dict[str, object] = {}
 
         def cap(req, timeout=None, **_):
@@ -247,7 +247,7 @@ class TestMainMockUrlopen(unittest.TestCase):
         self.assertTrue(url.endswith("/api/v1/users/current/statusbar/today"))
 
     def test_main_all_time_since(self) -> None:
-        env = {"WAKAPI_API_KEY": "k", "WAKAPI_BASE_URL": "https://wakapi.dev"}
+        env = {"WAKAPI_API_KEY": "k", "WAKAPI_URL": "https://wakapi.dev"}
         captured: dict[str, object] = {}
 
         def cap(req, timeout=None, **_):
@@ -264,7 +264,7 @@ class TestMainMockUrlopen(unittest.TestCase):
         self.assertIn("/api/compat/wakatime/v1/users/current/all_time_since_today", url)
 
     def test_main_summaries_start_end(self) -> None:
-        env = {"WAKAPI_API_KEY": "k", "WAKAPI_BASE_URL": "https://wakatime.com"}
+        env = {"WAKAPI_API_KEY": "k", "WAKAPI_URL": "https://wakatime.com"}
         captured: dict[str, object] = {}
 
         def cap(req, timeout=None, **_):
@@ -303,7 +303,7 @@ class TestMainMockUrlopen(unittest.TestCase):
         self.assertIn("writes_only=false", url)
 
     def test_main_summaries_only_start_exits_2(self) -> None:
-        env = {"WAKAPI_API_KEY": "k", "WAKAPI_BASE_URL": "https://wakatime.com"}
+        env = {"WAKAPI_API_KEY": "k", "WAKAPI_URL": "https://wakatime.com"}
         stderr = io.StringIO()
         argv = ["wakatime_query.py", "summaries", "--start", "2025-01-01"]
         with patch.dict(os.environ, env, clear=False):
@@ -315,7 +315,7 @@ class TestMainMockUrlopen(unittest.TestCase):
         self.assertIn("summaries", stderr.getvalue())
 
     def test_main_summaries_range_with_start_exits_2(self) -> None:
-        env = {"WAKAPI_API_KEY": "k", "WAKAPI_BASE_URL": "https://wakatime.com"}
+        env = {"WAKAPI_API_KEY": "k", "WAKAPI_URL": "https://wakatime.com"}
         stderr = io.StringIO()
         argv = [
             "wakatime_query.py",
@@ -335,7 +335,7 @@ class TestMainMockUrlopen(unittest.TestCase):
         self.assertEqual(cm.exception.code, 2)
 
     def test_main_summaries_neither_range_nor_dates_exits_2(self) -> None:
-        env = {"WAKAPI_API_KEY": "k", "WAKAPI_BASE_URL": "https://wakatime.com"}
+        env = {"WAKAPI_API_KEY": "k", "WAKAPI_URL": "https://wakatime.com"}
         stderr = io.StringIO()
         with patch.dict(os.environ, env, clear=False):
             with patch.object(sys, "argv", ["wakatime_query.py", "summaries"]):
@@ -345,7 +345,7 @@ class TestMainMockUrlopen(unittest.TestCase):
         self.assertEqual(cm.exception.code, 2)
 
     def test_main_debug_sets_runtime(self) -> None:
-        env = {"WAKAPI_API_KEY": "k", "WAKAPI_BASE_URL": "https://wakatime.com"}
+        env = {"WAKAPI_API_KEY": "k", "WAKAPI_URL": "https://wakatime.com"}
         stderr = io.StringIO()
         try:
             with patch.dict(os.environ, env, clear=False):
@@ -361,7 +361,7 @@ class TestMainMockUrlopen(unittest.TestCase):
 
     def test_main_parse_args_unknown_command_branch(self) -> None:
         """Hit defensive `else` in main (impossible with stock argparse)."""
-        env = {"WAKAPI_API_KEY": "k", "WAKAPI_BASE_URL": "https://wakatime.com"}
+        env = {"WAKAPI_API_KEY": "k", "WAKAPI_URL": "https://wakatime.com"}
         orig = argparse.ArgumentParser.parse_args
 
         def hijack(self, args=None):
@@ -462,7 +462,7 @@ class TestCmdStatusBarAndAllTime(unittest.TestCase):
         wq._RUNTIME["debug"] = False
 
     def test_status_bar_prints(self) -> None:
-        with patch.dict(os.environ, {"WAKAPI_BASE_URL": "https://wakatime.com"}):
+        with patch.dict(os.environ, {"WAKAPI_URL": "https://wakatime.com"}):
             body = json.dumps({"cached_at": "x", "data": {}}).encode()
             out = io.StringIO()
             with patch.object(wq.urllib.request, "urlopen", return_value=_FakeUrlResponse(200, body)):
@@ -557,27 +557,27 @@ class TestCompatApiPrefix(unittest.TestCase):
 
 class TestApiRootAndStatusbar(unittest.TestCase):
     def test_api_root_wakatime(self):
-        with patch.dict(os.environ, {"WAKAPI_BASE_URL": "https://wakatime.com"}, clear=False):
+        with patch.dict(os.environ, {"WAKAPI_URL": "https://wakatime.com"}, clear=False):
             self.assertEqual(wq._api_root(), "https://wakatime.com/api/v1")
 
     def test_api_root_wakapi(self):
-        with patch.dict(os.environ, {"WAKAPI_BASE_URL": "https://wakapi.dev"}, clear=False):
+        with patch.dict(os.environ, {"WAKAPI_URL": "https://wakapi.dev"}, clear=False):
             self.assertEqual(
                 wq._api_root(),
                 "https://wakapi.dev/api/compat/wakatime/v1",
             )
 
     def test_api_root_empty_env_defaults_wakatime(self):
-        with patch.dict(os.environ, {"WAKAPI_BASE_URL": ""}):
+        with patch.dict(os.environ, {"WAKAPI_URL": ""}, clear=False):
             self.assertEqual(wq._api_root(), "https://wakatime.com/api/v1")
 
     def test_statusbar_always_api_v1(self):
-        with patch.dict(os.environ, {"WAKAPI_BASE_URL": "https://wakapi.dev"}, clear=False):
+        with patch.dict(os.environ, {"WAKAPI_URL": "https://wakapi.dev"}, clear=False):
             self.assertEqual(
                 wq._statusbar_today_url(),
                 "https://wakapi.dev/api/v1/users/current/statusbar/today",
             )
-        with patch.dict(os.environ, {"WAKAPI_BASE_URL": "https://wakatime.com"}, clear=False):
+        with patch.dict(os.environ, {"WAKAPI_URL": "https://wakatime.com"}, clear=False):
             self.assertEqual(
                 wq._statusbar_today_url(),
                 "https://wakatime.com/api/v1/users/current/statusbar/today",

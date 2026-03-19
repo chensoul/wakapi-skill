@@ -39,8 +39,8 @@ Symlink or copy the folder into your product’s skills directory so `SKILL.md` 
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `WAKAPI_API_KEY` | Yes | API key from WakaTime or Wakapi. |
-| `WAKAPI_BASE_URL` | No | Leave unset for **WakaTime cloud** (`https://wakatime.com`). Set to e.g. `https://wakapi.dev` or self-hosted Wakapi if needed. **`status-bar`** always calls **`/api/v1/users/current/statusbar/today`**; other subcommands use **`/api/v1`** on WakaTime and **`/api/compat/wakatime/v1`** on other hosts (Wakapi). |
+| `WAKAPI_API_KEY` | Yes | API key from WakaTime or Wakapi. Sent on every request as **HTTP Basic** auth: `Authorization: Basic` + base64(key) only (no username). |
+| `WAKAPI_URL` | No | API host. Unset ⇒ **WakaTime cloud** (`https://wakatime.com`). Set for Wakapi / self-hosted (e.g. `https://wakapi.dev`). The key is sent to **this** host. **`status-bar`** always calls **`/api/v1/users/current/statusbar/today`**; other subcommands use **`/api/v1`** on WakaTime and **`/api/compat/wakatime/v1`** on other hosts (Wakapi). |
 
 Do not commit secrets. **No other environment variables** are read; use CLI flags (see below).
 
@@ -69,6 +69,8 @@ Workflows mirror [wakapi-skill](https://github.com/chensoul/wakapi-skill/tree/ma
 | [`.github/workflows/clawhub-publish.yml`](.github/workflows/clawhub-publish.yml) | Tag `v*` or **workflow_dispatch** | Publish to ClawHub (`CLAWHUB_TOKEN` secret) |
 
 ClawHub slug: **`wakapi-skill`**, display name: **Wakapi / WakaTime Query**.
+
+**Registry metadata:** [`SKILL.md`](SKILL.md) frontmatter uses **`metadata.openclaw`**: **`requires.env`** is **`["WAKAPI_URL", "WAKAPI_API_KEY"]`** and **`primaryEnv`** is **`WAKAPI_API_KEY`**, plus **`homepage`** / **`repository`** ([ClawHub metadata & scanners](https://github.com/openclaw/clawhub/issues/522)). The **key is required**; **API URL is optional** (defaults to WakaTime cloud) — see the skill description for **HTTP Basic** usage.
 
 ## Using & developing
 
@@ -110,7 +112,7 @@ Stay in the repo root (with venv activated if you use one). Set [configuration](
 
 ```bash
 export WAKAPI_API_KEY="your-key"
-# optional: export WAKAPI_BASE_URL="https://your-wakapi.example"
+# optional: export WAKAPI_URL="https://your-wakapi.example"
 
 python3 scripts/wakatime_query.py --help
 python3 scripts/wakatime_query.py health

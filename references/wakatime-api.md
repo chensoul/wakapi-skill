@@ -9,7 +9,7 @@
 
 ## Base URL
 
-默认（`WAKAPI_BASE_URL` 未设置或指向 WakaTime）：
+默认（`WAKAPI_URL` 未设置或指向 WakaTime）：
 
 ```text
 https://wakatime.com/api/v1

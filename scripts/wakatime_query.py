@@ -2,7 +2,8 @@
 """
 WakaTime / Wakapi stats CLI (stdlib only).
 
-Environment: only WAKAPI_API_KEY (required) and WAKAPI_BASE_URL (optional).
+Environment: WAKAPI_API_KEY (required) and WAKAPI_URL (optional, default WakaTime cloud).
+Auth: HTTP Basic — Authorization header is "Basic " + base64(api_key) (key only, no username).
 Other options: -d/--debug may appear anywhere. Optional per-command --timeout on some subcommands.
 
 Examples:
@@ -31,7 +32,7 @@ from typing import Any
 
 _DEFAULT_BASE = "https://wakatime.com"
 
-# Set in main() from CLI (only env vars used: WAKAPI_API_KEY, WAKAPI_BASE_URL).
+# Set in main() from CLI (only env vars used: WAKAPI_API_KEY, WAKAPI_URL).
 _RUNTIME: dict[str, Any] = {
     "debug": False,
 }
@@ -76,6 +77,11 @@ def _host_from_base(base: str) -> str:
     return (urllib.parse.urlparse(base).hostname or "").lower()
 
 
+def _base_url_from_env() -> str:
+    """API host from env: WAKAPI_URL (optional; empty => WakaTime cloud default in _normalize_base)."""
+    return os.environ.get("WAKAPI_URL", "").strip()
+
+
 def _compat_api_prefix(base: str) -> str:
     """Most WakaTime-shaped endpoints: WakaTime cloud uses /api/v1; Wakapi uses compat prefix."""
     if _host_from_base(base) == "wakatime.com":
@@ -85,13 +91,13 @@ def _compat_api_prefix(base: str) -> str:
 
 def _api_root() -> str:
     """API root for health, projects, stats, summaries, etc. (not status-bar)."""
-    base = _normalize_base(os.environ.get("WAKAPI_BASE_URL", ""))
+    base = _normalize_base(_base_url_from_env())
     return base + _compat_api_prefix(base)
 
 
 def _statusbar_today_url() -> str:
     """Wakapi serves today statusbar under /api/v1; use that path on every host."""
-    base = _normalize_base(os.environ.get("WAKAPI_BASE_URL", ""))
+    base = _normalize_base(_base_url_from_env())
     return f"{base}/api/v1/users/current/statusbar/today"
 
 
@@ -253,7 +259,11 @@ def _add_http_timeout_arg(p: argparse.ArgumentParser, *, fallback: float) -> Non
 def main() -> None:
     dbg, argv_cmd = _strip_debug_argv(sys.argv[1:])
     parser = argparse.ArgumentParser(
-        description="WakaTime / Wakapi coding stats. Env: WAKAPI_API_KEY (required), WAKAPI_BASE_URL (optional).",
+        description=(
+            "WakaTime / Wakapi coding stats (read-only API). "
+            "Env: WAKAPI_API_KEY (required), WAKAPI_URL (optional). "
+            "Auth: HTTP Basic with API key only."
+        ),
         epilog="Debug: use -d or --debug anywhere (before or after the subcommand) to print each request URL to stderr.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
