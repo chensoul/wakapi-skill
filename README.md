@@ -13,8 +13,8 @@ Wakapi coding stats (summaries, projects, today status, totals) via a small Pyth
 
 | File | Contents |
 |------|----------|
-| **[SKILL.md](SKILL.md)** | When to use, env, **subcommand table**, grouped CLI examples |
-| **[references/wakapi-api.md](references/wakapi-api.md)** | URLs, auth, **`stats` vs `summaries`**, Wakapi **`--range`** semantics, **curl**, timeouts |
+| **[SKILL.md](SKILL.md)** | Agent instructions: when to use, env, **minimal CLI examples**, troubleshooting |
+| **[references/wakapi-api.md](references/wakapi-api.md)** | **Full** API/CLI reference: URLs, auth, **`stats` vs `summaries`**, **`--range`** table, **curl**, timeouts, extended examples |
 
 ## Layout
 
@@ -38,7 +38,7 @@ wakapi-skill/
 | `WAKAPI_URL` | Yes | Instance **origin** (e.g. `https://wakapi.dev`). |
 | `WAKAPI_API_KEY` | Yes* | API key (**HTTP Basic**, key only). *Not required for **`health`** (`GET /api/health`). |
 
-Do not commit secrets. **No other environment variables** are read; use CLI flags (see `SKILL.md`).
+Do not commit secrets. **No other environment variables** are read; CLI flags are documented in **`SKILL.md`** and **`references/wakapi-api.md`**.
 
 ## Using & developing
 
@@ -71,7 +71,7 @@ python3 scripts/wakapi_query.py summaries --range today   # compat summaries ?ra
 python3 scripts/wakapi_query.py summaries --range last_7_days --timezone Asia/Shanghai
 ```
 
-More examples: **[SKILL.md](SKILL.md)** · API details: **[references/wakapi-api.md](references/wakapi-api.md)**.
+Quick start: **[SKILL.md](SKILL.md)** · full CLI/curl/presets: **[references/wakapi-api.md](references/wakapi-api.md)**.
 
 ### Tests
 
