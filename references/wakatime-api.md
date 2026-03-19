@@ -1,56 +1,56 @@
-# WakaTime 云端接口说明（与本 skill 相关）
+# WakaTime cloud API (relevant to this skill)
 
-[WakaTime](https://wakatime.com) 官方提供 HTTP API，本仓库 CLI 仅使用 **v1 下与统计相关的只读 GET**（与插件上报心跳无关）。
+[WakaTime](https://wakatime.com) exposes an HTTP API. This repo’s CLI only uses **read-only GET** endpoints under **v1** related to stats (not plugin heartbeats).
 
-## 官方文档
+## Official documentation
 
-- 开发者文档：<https://wakatime.com/developers>
-- API 概览：<https://wakatime.com/api/>
+- Developers: <https://wakatime.com/developers>
+- API overview: <https://wakatime.com/api/>
 
 ## Base URL
 
-默认（`WAKAPI_URL` 未设置或指向 WakaTime）：
+Default when `WAKAPI_URL` is unset or points at WakaTime:
 
 ```text
 https://wakatime.com/api/v1
 ```
 
-所有下列路径均接在该前缀之后（无前导 `/` 重复问题：前缀已含 `/api/v1`）。
+All paths below are appended to this prefix (no doubled leading `/`; the prefix already includes `/api/v1`).
 
-## 认证
+## Authentication
 
-官方说明：使用 **HTTP Basic**，将 **API Key 经 Base64 编码** 放入 `Authorization`（与 Wakapi 本 skill 用法一致）：
+Per WakaTime: **HTTP Basic** with the **API key Base64-encoded** in `Authorization` (same as this skill with Wakapi):
 
 ```http
 Authorization: Basic <base64(api_key)>
 Accept: application/json
 ```
 
-也可使用文档中描述的 OAuth / `api_key` query 等方式；**本脚本仅实现 Basic**。
+OAuth / `api_key` query and other methods exist in the docs; **this script only implements Basic**.
 
-## 本 CLI 使用的端点（GET）
+## Endpoints used by this CLI (GET)
 
-| 子命令 | 路径 | 备注 |
-|--------|------|------|
-| `health` / `projects` | `/users/current/projects` | `health` 以 HTTP 200 为健康 |
-| `status-bar` | 脚本实际请求：`https://wakatime.com/api/v1/users/current/statusbar/today` | 与 WakaTime 路径一致（`statusbar` 无下划线） |
+| Subcommand | Path | Notes |
+|------------|------|--------|
+| `health` / `projects` | `/users/current/projects` | `health` treats HTTP 200 as healthy |
+| `status-bar` | Script calls: `https://wakatime.com/api/v1/users/current/statusbar/today` | Matches WakaTime (`statusbar`, no underscore) |
 | `all-time-since` | `/users/current/all_time_since_today` | |
-| `stats <range>` | `/users/current/stats/{range}` | `range` 示例：`last_7_days`、`last_30_days`、`2025`、`2025-03`、`all_time` 等；可选 query：`timeout`、`writes_only` |
-| `summaries` | `/users/current/summaries` | `start`+`end`（`YYYY-MM-DD`）或 `range`（预设文案如 `Last 7 Days`）；可选：`project`、`branches`、`timezone`、`timeout`（按键超时，非 HTTP）、`writes_only` |
+| `stats <range>` | `/users/current/stats/{range}` | `range` examples: `last_7_days`, `last_30_days`, `2025`, `2025-03`, `all_time`, etc.; optional query: `timeout`, `writes_only` |
+| `summaries` | `/users/current/summaries` | `start`+`end` (`YYYY-MM-DD`) or `range` (preset strings like `Last 7 Days`); optional: `project`, `branches`, `timezone`, `timeout` (keystroke timeout, not HTTP), `writes_only` |
 
-具体 query 与响应字段以官方文档为准。
+Exact query parameters and response fields: official docs.
 
-## CLI 与 HTTP 超时（本仓库脚本）
+## CLI vs HTTP timeouts (this repo’s script)
 
-| 子命令 | HTTP 客户端超时 |
-|--------|-----------------|
-| `health` / `projects` / `status-bar` / `all-time-since` | 子命令 **`--timeout`** = HTTP socket；默认 **15** s（`health`）或 **60** s |
-| `stats` / `summaries` | HTTP **固定 60** s；**`stats --timeout`** / **`summaries --timeout`** = **API** 查询参数（keystroke timeout），不是 HTTP 超时 |
+| Subcommand | HTTP client timeout |
+|------------|---------------------|
+| `health` / `projects` / `status-bar` / `all-time-since` | Subcommand **`--timeout`** = HTTP socket; default **15** s (`health`) or **60** s |
+| `stats` / `summaries` | HTTP **fixed 60** s; **`stats --timeout`** / **`summaries --timeout`** = **API** query parameter (keystroke timeout), not HTTP |
 
-## curl 示例（请替换 API Key）
+## curl examples (replace API key)
 
 ```bash
-API_KEY='你的密钥'
+API_KEY='your-api-key'
 B64=$(printf '%s' "$API_KEY" | base64 | tr -d '\n')
 
 curl -sS -H "Authorization: Basic $B64" -H 'Accept: application/json' \
@@ -60,7 +60,7 @@ curl -sS -H "Authorization: Basic $B64" -H 'Accept: application/json' \
   'https://wakatime.com/api/v1/users/current/statusbar/today'
 ```
 
-## 说明
+## Notes
 
-- 部分能力（团队、排行榜、OAuth 等）不在本 skill 范围内。
-- 若使用自建兼容服务（如 Wakapi），路径前缀可能与纯 WakaTime 不同，见 [wakapi-api.md](wakapi-api.md)。
+- Features such as teams, leaderboards, OAuth, etc. are out of scope for this skill.
+- Self-hosted compatible services (e.g. Wakapi) may use different path prefixes than plain WakaTime; see [wakapi-api.md](wakapi-api.md).
