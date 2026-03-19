@@ -9,8 +9,6 @@
 
 Portable **agent skill** to query **WakaTime** or **Wakapi** coding stats via a small Python CLI. 
 
-**Repository:** [github.com/chensoul/wakapi-skill](https://github.com/chensoul/wakapi-skill)
-
 ## Layout
 
 ```
