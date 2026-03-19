@@ -51,9 +51,9 @@ python3 scripts/wakatime_query.py status-bar
 python3 scripts/wakatime_query.py all-time-since
 python3 scripts/wakatime_query.py stats last_7_days
 python3 scripts/wakatime_query.py summaries --start 2025-03-01 --end 2025-03-07
-python3 scripts/wakatime_query.py summaries --range "Last 7 Days"
+python3 scripts/wakatime_query.py summaries --range last_7_days
 python3 scripts/wakatime_query.py summaries --range yesterday --timezone Asia/Shanghai
-python3 scripts/wakatime_query.py summaries --start 2025-03-01 --end 2025-03-07 \
+python3 scripts/wakatime_query.py summaries --start 2025-03-18 --end 2025-03-18 \
   --project myapp --branches main,develop --timezone Asia/Shanghai
 ```
 

@@ -41,6 +41,31 @@ Let the instance origin be `WAKAPI_URL` (no trailing `/`), e.g. `https://wakapi.
 
 `{range}` must be URL-encoded (e.g. `last_7_days`, `all_time`).
 
+## Summaries on Wakapi: `range` vs fixed dates
+
+For **`summaries`** on **Wakapi** (compat API), the `range` query value is often a **lowercase token** passed through by this CLI as `--range` (e.g. `--range today`). Behaviour is implemented by your Wakapi version; the table below reflects **common** semantics on many deployments.
+
+| Token | Typical window (through **today**, inclusive, unless noted) |
+|-------|------------------------------------------------------------|
+| `today` | Today only. |
+| `yesterday` | **Yesterday through today** — *not* “yesterday only”. |
+| `week` | This week’s **Monday** through today. |
+| `month` | **1st of this month** through today. |
+| `year` | **1 January** of this year through today. |
+| `last_7_days` | The **previous 7 days plus today** → **8** calendar days in total. |
+
+**Single calendar day only** (e.g. yesterday **without** including today): use an explicit date range with **`start` and `end` equal**:
+
+```bash
+export WAKAPI_URL="https://your-wakapi.example"
+export WAKAPI_API_KEY="your-api-key"
+python3 scripts/wakatime_query.py summaries --start 2026-03-18 --end 2026-03-18
+```
+
+Totals in the JSON (e.g. hours/minutes) come from the server; this script does not change aggregation rules.
+
+**WakaTime cloud** uses different preset strings for `range` (e.g. `Last 7 Days`, `Yesterday`) — see [wakatime-api.md](wakatime-api.md) and [WakaTime Summaries](https://wakatime.com/developers#summaries).
+
 ## CLI vs HTTP timeouts (this repo’s script)
 
 | Subcommand | HTTP client timeout |
