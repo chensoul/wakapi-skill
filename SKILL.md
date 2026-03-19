@@ -23,10 +23,10 @@ The user wants **read-only** stats: time ranges, projects/languages, today’s s
 |----------|--------|
 | **Runtime** | **Python 3** with **standard library only** (no pip/npm deps for [`scripts/wakatime_query.py`](scripts/wakatime_query.py)). |
 | **Environment — required** | **`WAKAPI_API_KEY`** — API key from the user’s WakaTime or Wakapi account. |
-| **Environment — optional** | **`WAKAPI_URL`** — API origin (scheme + host, no trailing `/`). Omit for **WakaTime cloud** (`https://wakatime.com`). Set for **Wakapi** / self-hosted (e.g. `https://wakapi.dev`). |
+| **Environment — optional** | **`WAKAPI_URL`** — Site origin (scheme + host; trailing `/` stripped). Omit for **WakaTime cloud** (`https://wakatime.com`). Set for **Wakapi** / self-hosted (e.g. `https://wakapi.dev`). Prefix logic: **`/api/v1`** for most endpoints only if hostname is **exactly** `wakatime.com`; otherwise **`/api/compat/wakatime/v1`**. **`status-bar`** always uses **`{origin}/api/v1/.../statusbar/today`**. |
 | **Network** | Outbound **HTTPS** to the host above. |
 | **Authentication** | **HTTP Basic**: `Authorization: Basic` + base64-encoded **API key only** (no username). Used only against the configured host; endpoints are **read-only** stats APIs. |
-| **Registry / installers** | YAML frontmatter **`metadata.openclaw`**: **`requires.env`** = `["WAKAPI_URL", "WAKAPI_API_KEY"]`, **`primaryEnv`** = **`WAKAPI_API_KEY`**. Only the key is mandatory; host defaults when **`WAKAPI_URL`** is unset. |
+| **Registry / installers** | Frontmatter key **`metadata`** (JSON value): **`openclaw.requires.env`** = `["WAKAPI_URL", "WAKAPI_API_KEY"]`, **`primaryEnv`** = **`WAKAPI_API_KEY`**. Only the key is mandatory; host defaults when **`WAKAPI_URL`** is unset. |
 
 No other environment variables are read by the CLI.
 

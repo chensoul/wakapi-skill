@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/github/license/chensoul/wakapi-skill)](./LICENSE)
 [![Publish to ClawHub](https://github.com/chensoul/wakapi-skill/actions/workflows/clawhub-publish.yml/badge.svg)](https://github.com/chensoul/wakapi-skill/actions/workflows/clawhub-publish.yml)
 
-Portable **agent skill** to query **WakaTime** or **Wakapi** coding stats via a small Python CLI. Works with any tool that loads `SKILL.md` skills (Cursor, Claude Code, OpenClaw, Codex, etc.).
+Portable **agent skill** to query **WakaTime** or **Wakapi** coding stats via a small Python CLI. 
 
 **Repository:** [github.com/chensoul/wakapi-skill](https://github.com/chensoul/wakapi-skill)
 
@@ -29,48 +29,14 @@ wakapi-skill/
 
 Symlink or copy the folder into your product’s skills directory so `SKILL.md` is discovered.
 
-## Install (examples)
-
-**Cursor:** `~/.cursor/skills/wakapi-skill` or `<project>/.cursor/skills/wakapi-skill` (not `~/.cursor/skills-cursor/`).
-
-**Claude Code:** `~/.claude/skills/wakapi-skill` or `<project>/.claude/skills/wakapi-skill` — see [Claude Code — Skills](https://code.claude.com/docs/en/skills).
-
 ## Configuration
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
 | `WAKAPI_API_KEY` | Yes | API key from WakaTime or Wakapi. Sent on every request as **HTTP Basic** auth: `Authorization: Basic` + base64(key) only (no username). |
-| `WAKAPI_URL` | No | API host. Unset ⇒ **WakaTime cloud** (`https://wakatime.com`). Set for Wakapi / self-hosted (e.g. `https://wakapi.dev`). The key is sent to **this** host. **`status-bar`** always calls **`/api/v1/users/current/statusbar/today`**; other subcommands use **`/api/v1`** on WakaTime and **`/api/compat/wakatime/v1`** on other hosts (Wakapi). |
+| `WAKAPI_URL` | No | Site **origin** (scheme + host; trailing `/` stripped). Unset ⇒ **`https://wakatime.com`**. Set for Wakapi / self-hosted (e.g. `https://wakapi.dev`). The key is sent to **this** host. **`status-bar`** always requests **`{origin}/api/v1/users/current/statusbar/today`**. Other subcommands use **`/api/v1`** only when the hostname is **exactly** `wakatime.com`; **any other host** (including Wakapi) uses **`/api/compat/wakatime/v1`** for those calls — see `scripts/wakatime_query.py` (`_compat_api_prefix`). |
 
 Do not commit secrets. **No other environment variables** are read; use CLI flags (see below).
-
-### CLI
-
-| Flag | Purpose |
-|------|---------|
-| `--debug` / `-d` | Print each request URL to **stderr**. May appear **anywhere** (before or after the subcommand), e.g. `projects -d`. |
-
-Subcommands **`health`**, **`projects`**, **`status-bar`**, **`all-time-since`** accept **`--timeout SEC`** as **HTTP socket** timeout (defaults: **15** s for `health`, **60** s for the others).
-
-**`stats`** / **`summaries`** use a fixed **60** s HTTP timeout. Their **`--timeout`** (where present) is a **WakaTime API query parameter** (keystroke timeout), not the HTTP client timeout — see `stats --help` / `summaries --help`.
-
-Example: `python3 scripts/wakatime_query.py projects -d`
-
-`.env` is not loaded automatically — use `export`, IDE env, or `set -a && source .env && set +a`.
-
-## CI & publishing (maintainers)
-
-Workflows mirror [wakapi-skill](https://github.com/chensoul/wakapi-skill/tree/main/.github/workflows):
-
-| Workflow | When | What |
-|----------|------|------|
-| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | Every push / PR | `py_compile`, `unittest`, **package-check** (rsync + [`.clawhubignore`](.clawhubignore)) |
-| [`.github/workflows/release.yml`](.github/workflows/release.yml) | Push tag `v*` | Tarball + [GitHub Release](https://github.com/softprops/action-gh-release) |
-| [`.github/workflows/clawhub-publish.yml`](.github/workflows/clawhub-publish.yml) | Tag `v*` or **workflow_dispatch** | Publish to ClawHub (`CLAWHUB_TOKEN` secret) |
-
-ClawHub slug: **`wakapi-skill`**, display name: **Wakapi / WakaTime Query**.
-
-**Registry metadata:** [`SKILL.md`](SKILL.md) frontmatter uses **`metadata.openclaw`**: **`requires.env`** is **`["WAKAPI_URL", "WAKAPI_API_KEY"]`** and **`primaryEnv`** is **`WAKAPI_API_KEY`**, plus **`homepage`** / **`repository`** ([ClawHub metadata & scanners](https://github.com/openclaw/clawhub/issues/522)). The **key is required**; **API URL is optional** (defaults to WakaTime cloud) — see the skill description for **HTTP Basic** usage.
 
 ## Using & developing
 
@@ -154,17 +120,19 @@ coverage report -m --include='scripts/wakatime_query.py'
 
 After changes, run **unittest** (and optionally **coverage**) before opening a PR.
 
-## Contents
+## CI & publishing
 
-| Path | Role |
-|------|------|
-| [SKILL.md](SKILL.md) | Agent instructions |
-| [scripts/wakatime_query.py](scripts/wakatime_query.py) | CLI |
-| [references/wakapi-api.md](references/wakapi-api.md) | Wakapi paths & auth (aligned with this CLI) |
-| [references/wakatime-api.md](references/wakatime-api.md) | WakaTime cloud API (aligned with this CLI) |
-| [tests/test_wakatime_query.py](tests/test_wakatime_query.py) | Unit tests (`unittest`, no network) |
-| [.clawhubignore](.clawhubignore) | Excludes tests / README / `.github` from the ClawHub publish bundle (used by CI `rsync`) |
-| [.gitattributes](.gitattributes) | Keeps `.clawhubignore` as **LF** line endings — **CRLF breaks** `rsync --exclude-from` on Linux/macOS |
+Workflows mirror [wakapi-skill](https://github.com/chensoul/wakapi-skill/tree/main/.github/workflows):
+
+| Workflow | When | What |
+|----------|------|------|
+| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | Every push / PR | `py_compile`, `unittest`, **package-check** (rsync + [`.clawhubignore`](.clawhubignore)) |
+| [`.github/workflows/release.yml`](.github/workflows/release.yml) | Push tag `v*` | Tarball + [GitHub Release](https://github.com/softprops/action-gh-release) |
+| [`.github/workflows/clawhub-publish.yml`](.github/workflows/clawhub-publish.yml) | Tag `v*` or **workflow_dispatch** | Publish to ClawHub (`CLAWHUB_TOKEN` secret) |
+
+ClawHub slug: **`wakapi-skill`**, display name: **Wakapi / WakaTime Query**.
+
+**Registry metadata:** [`SKILL.md`](SKILL.md) frontmatter uses **`metadata.openclaw`**: **`requires.env`** is **`["WAKAPI_URL", "WAKAPI_API_KEY"]`** and **`primaryEnv`** is **`WAKAPI_API_KEY`**, plus **`homepage`** / **`repository`** ([ClawHub metadata & scanners](https://github.com/openclaw/clawhub/issues/522)). The **key is required**; **API URL is optional** (defaults to WakaTime cloud) — see the skill description for **HTTP Basic** usage.
 
 ## License
 

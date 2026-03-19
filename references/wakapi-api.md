@@ -27,7 +27,7 @@ Let the instance origin be `WAKAPI_URL` (no trailing `/`), e.g. `https://wakapi.
 | Most WakaTime-shaped read-only endpoints | `{origin}/api/compat/wakatime/v1` | `projects`, `stats`, `summaries`, `all-time-since`, and projects used by `health`, etc. |
 | Today’s status bar | `{origin}/api/v1` | **Only** `…/users/current/statusbar/today` is fixed under `/api/v1` (Wakapi mounts both `/v1/...` and compat routes under `/api`). |
 
-> Matches `scripts/wakatime_query.py`: hosts **other than** `wakatime.com` use the compat prefix; the **`status-bar`** subcommand always calls `{origin}/api/v1/users/current/statusbar/today`.
+> Matches `scripts/wakatime_query.py`: the compat prefix is used when the origin’s hostname is **not** exactly `wakatime.com`; the **`status-bar`** subcommand always calls `{origin}/api/v1/users/current/statusbar/today`.
 
 ## Endpoints used by this CLI (GET)
 
