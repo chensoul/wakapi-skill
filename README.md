@@ -1,5 +1,12 @@
 # wakapi-skill
 
+[![ClawHub](https://img.shields.io/badge/ClawHub-wakapi--skill-blue)](https://clawhub.ai/skills/wakapi-skill)
+[![ClawHub version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fclawhub.ai%2Fapi%2Fv1%2Fskills%2Fwakapi-skill&query=%24.skill.tags.latest&label=clawhub&prefix=v&color=blue)](https://clawhub.ai/skills/wakapi-skill)
+[![ClawHub downloads](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fclawhub.ai%2Fapi%2Fv1%2Fskills%2Fwakapi-skill&query=%24.skill.stats.downloads&label=clawhub%20downloads&color=blue)](https://clawhub.ai/skills/wakapi-skill)
+[![GitHub stars](https://img.shields.io/github/stars/chensoul/wakapi-skill?style=flat&logo=github)](https://github.com/chensoul/wakapi-skill)
+[![License](https://img.shields.io/github/license/chensoul/wakapi-skill)](./LICENSE)
+[![Publish to ClawHub](https://github.com/chensoul/wakapi-skill/actions/workflows/clawhub-publish.yml/badge.svg)](https://github.com/chensoul/wakapi-skill/actions/workflows/clawhub-publish.yml)
+
 Portable **agent skill** to query **WakaTime** or **Wakapi** coding stats via a small Python CLI. Works with any tool that loads `SKILL.md` skills (Cursor, Claude Code, OpenClaw, Codex, etc.).
 
 **Repository:** [github.com/chensoul/wakapi-skill](https://github.com/chensoul/wakapi-skill)
@@ -53,7 +60,7 @@ Example: `python3 scripts/wakatime_query.py projects -d`
 
 ## CI & publishing (maintainers)
 
-Workflows mirror [wakapi-sync-skill](https://github.com/cosformula/wakapi-sync-skill/tree/main/.github/workflows):
+Workflows mirror [wakapi-skill](https://github.com/chensoul/wakapi-skill/tree/main/.github/workflows):
 
 | Workflow | When | What |
 |----------|------|------|
