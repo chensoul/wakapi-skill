@@ -9,6 +9,8 @@
 
 Wakapi coding stats (summaries, projects, today status, totals) via a small Python CLI.
 
+**Python:** **≥ 3.10** required (PEP 604 syntax in the script). **`.python-version`** and **GitHub Actions CI** use **3.10** (aligned with the minimum).
+
 ## Documentation
 
 | File | Contents |
@@ -51,7 +53,7 @@ cd wakapi-skill
 
 ### Virtualenv (optional)
 
-Python **3.x**, **stdlib only**.
+**Python ≥ 3.10**, **stdlib only** (CI uses **3.10** — see **`.python-version`**).
 
 ```bash
 python3 -m venv .venv

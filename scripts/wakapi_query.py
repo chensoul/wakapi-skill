@@ -2,6 +2,8 @@
 """
 Wakapi coding-stats CLI (stdlib only).
 
+Requires Python >= 3.10 (PEP 604 type syntax in annotations).
+
 Env: WAKAPI_URL (required), WAKAPI_API_KEY (required for authenticated subcommands).
 Health uses Wakapi native GET /api/health (no API key).
 """

@@ -3,8 +3,8 @@ name: wakapi
 description: >-
   Queries read-only coding-time stats from a Wakapi instance (projects, daily summaries,
   interval stats, status bar, all-time totals) using scripts/wakapi_query.py with Python 3
-  stdlib only. Requires WAKAPI_URL; WAKAPI_API_KEY for all subcommands except native GET
-  /api/health. Use when the user mentions Wakapi, self-hosted coding stats, or
+  stdlib only; Python >= 3.10. Requires WAKAPI_URL; WAKAPI_API_KEY for all subcommands
+  except native GET /api/health. Use when the user mentions Wakapi, self-hosted coding stats, or
   WakaTime-compatible compat APIs under /api/compat/wakatime/v1.
 homepage: https://github.com/chensoul/wakapi-skill
 repository: https://github.com/chensoul/wakapi-skill
@@ -28,11 +28,9 @@ The user wants **read-only** data from their **Wakapi** server: project list, ti
 
 | Item | Detail |
 |------|--------|
-| **Script** | [`scripts/wakapi_query.py`](scripts/wakapi_query.py) — **stdlib only**, **Python 3** |
+| **Python** | **≥ 3.10** required (PEP 604 union types in annotations). |
 | **`WAKAPI_URL`** | Required |
 | **`WAKAPI_API_KEY`** | Required except for **`health`** |
-| **Auth** | HTTP Basic, **API key only** (base64), no username |
-| **Registry** | `metadata.openclaw.requires.env` includes both vars; `primaryEnv` = `WAKAPI_API_KEY` |
 
 ## Examples
 

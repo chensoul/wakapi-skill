@@ -8,7 +8,7 @@
 
 ## What the CLI calls
 
-[Wakapi](https://github.com/muety/wakapi) provides a **native** REST API and a **compat** layer at **`/api/compat/wakatime/v1`**. [`scripts/wakapi_query.py`](../scripts/wakapi_query.py) uses **read-only GET** plus **`GET /api/health`**.
+[Wakapi](https://github.com/muety/wakapi) provides a **native** REST API and a **compat** layer at **`/api/compat/wakatime/v1`**. [`scripts/wakapi_query.py`](../scripts/wakapi_query.py) uses **read-only GET** plus **`GET /api/health`**. **Python ≥ 3.10**; **CI** and **`.python-version`** use **3.10** (same as minimum).
 
 **Official resources**
 
