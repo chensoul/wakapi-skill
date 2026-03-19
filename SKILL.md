@@ -2,9 +2,7 @@
 name: wakapi
 description: >-
   Wakapi coding stats (summaries, projects, today status, totals) via a small Python
-  CLI. Requires WAKAPI_URL. WAKAPI_API_KEY is HTTP Basic (Authorization Basic base64(key))
-  for all calls except health, which uses native GET /api/health (no key). Use for
-  Wakapi / self-hosted coding time and project/language breakdowns.
+  CLI.
 homepage: https://github.com/chensoul/wakapi-skill
 repository: https://github.com/chensoul/wakapi-skill
 metadata: {"openclaw": {"requires": {"env": ["WAKAPI_URL", "WAKAPI_API_KEY"]}, "primaryEnv": "WAKAPI_API_KEY"}}
