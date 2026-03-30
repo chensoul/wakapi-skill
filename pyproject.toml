@@ -1,0 +1,11 @@
+# Script-only skill; this file documents the supported Python range for CI and editors.
+[project]
+name = "wakapi-skill"
+version = "0"
+requires-python = ">=3.10"
+description = "Wakapi agent skill (run: python3 scripts/wakapi_query.py)"
+readme = "README.md"
+
+[tool.ruff]
+# Optional: reserve for future lint config
+target-version = "py310"
