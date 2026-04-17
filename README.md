@@ -3,9 +3,9 @@
 [![ClawHub](https://img.shields.io/badge/ClawHub-wakapi--skill-blue)](https://clawhub.ai/skills/wakapi-skill)
 [![ClawHub version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fclawhub.ai%2Fapi%2Fv1%2Fskills%2Fwakapi-skill&query=%24.skill.tags.latest&label=clawhub&prefix=v&color=blue)](https://clawhub.ai/skills/wakapi-skill)
 [![ClawHub downloads](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fclawhub.ai%2Fapi%2Fv1%2Fskills%2Fwakapi-skill&query=%24.skill.stats.downloads&label=clawhub%20downloads&color=blue)](https://clawhub.ai/skills/wakapi-skill)
-[![GitHub stars](https://img.shields.io/github/stars/chensoul/wakapi-skill?style=flat&logo=github)](https://github.com/chensoul/wakapi-skill)
+[![GitHub stars](https://img.shields.io/github/stars/chensoul/wakapi-skill?style=flat&logo=github)](https://github.com/zhijunio/wakapi-skill)
 [![License](https://img.shields.io/github/license/chensoul/wakapi-skill)](./LICENSE)
-[![Publish to ClawHub](https://github.com/chensoul/wakapi-skill/actions/workflows/clawhub-publish.yml/badge.svg)](https://github.com/chensoul/wakapi-skill/actions/workflows/clawhub-publish.yml)
+[![Publish to ClawHub](https://github.com/zhijunio/wakapi-skill/actions/workflows/clawhub-publish.yml/badge.svg)](https://github.com/zhijunio/wakapi-skill/actions/workflows/clawhub-publish.yml)
 
 Wakapi coding stats (summaries, projects, today status, totals) via a small Python CLI.
 
@@ -47,7 +47,7 @@ Do not commit secrets. **No other environment variables** are read; CLI flags ar
 ### Clone
 
 ```bash
-git clone https://github.com/chensoul/wakapi-skill.git
+git clone https://github.com/zhijunio/wakapi-skill.git
 cd wakapi-skill
 ```
 

@@ -6,8 +6,8 @@ description: >-
   stdlib only; Python >= 3.10. Requires WAKAPI_URL; WAKAPI_API_KEY for all subcommands
   except native GET /api/health. Use when the user mentions Wakapi, self-hosted coding stats, or
   WakaTime-compatible compat APIs under /api/compat/wakatime/v1.
-homepage: https://github.com/chensoul/wakapi-skill
-repository: https://github.com/chensoul/wakapi-skill
+homepage: https://github.com/zhijunio/wakapi-skill
+repository: https://github.com/zhijunio/wakapi-skill
 metadata: {"openclaw": {"requires": {"env": ["WAKAPI_URL", "WAKAPI_API_KEY"]}, "primaryEnv": "WAKAPI_API_KEY"}}
 ---
 
